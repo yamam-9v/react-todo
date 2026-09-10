@@ -27,7 +27,7 @@
 
 | マイルストーン | ステップ | 状態 |
 |---|---|---|
-| 第0: 足場を作る | 1. Vite(react-ts)環境構築 + ts-tetris設定移植 | 未着手 |
+| 第0: 足場を作る | 1. Vite(react-ts)環境構築 + ts-tetris設定移植 | 完了 |
 | 第0 | 2. eslint-plugin-react-hooks導入 + パラダイムの違いの言語化 | 未着手 |
 | 第1: fetchなしのReact基礎 | 3. useStateとpropsでハードコード配列を表示 | 未着手 |
 | 第1 | 4. 追加・削除・完了トグル(状態の不変更新) | 未着手 |
@@ -48,15 +48,14 @@
 
 ## 現在の状態(最新状態を上書きで更新)
 
-環境構築(ステップ1)の前段階として、リポジトリの下地を整備済み。
-`git init` 済み(`main` ブランチ、ファーストコミット `9b90a23` 済み)。`.gitignore` / `README.md` / `CLAUDE.md` を作成。
-`.claude/hooks/`(`worklog-session-start.sh` / `worklog-stop-check.sh`)と `.claude/settings.json` により、
-セッション中に `work-log.md` が未更新のまま終了しようとするとブロックされる仕組みを ts-tetris から移植済み(`.claude/` は `.gitignore` により非追跡)。
-ts-tetris の初期コミット時点のファイル構成(`.gitignore` / `CLAUDE.md` / `README.md` / 学習計画書 / `work-log.md` の5点)と比較し、抜け漏れがないことを確認済み。
-次のアクションはステップ1(Vite `react-ts` テンプレートでの環境構築、および `ts-tetris` の
-`tsconfig.json` / ESLint / Prettier 設定の移植)。
+リポジトリの下地(`git init` / `.gitignore` / `README.md` / `CLAUDE.md` / work-log更新をブロックするhook)に加え、
+ステップ1(Vite `react-ts` 環境構築)が完了。`npm run dev` / `typecheck` / `lint` / `format` すべて動作確認済み。
+`tsconfig.app.json` / `tsconfig.node.json` の両方に `strict: true` と `noUncheckedIndexedAccess: true` を追加済み(ts-tetris の設定を移植)。
+ESLintはFlat Configで `typescript-eslint` の `recommendedTypeChecked` + `eslint-plugin-react-hooks`(`react-hooks/exhaustive-deps` 有効)+ `eslint-plugin-react-refresh` + `eslint-config-prettier` を導入。
+Vite最新テンプレートのデフォルトlinterがoxlintに変わっていたが、学習計画書の方針(ESLint + eslint-plugin-react-hooks)を優先しユーザーと相談の上ESLintを採用した。
 
 作業拠点は `~/projects/react-todo`(WSL2ネイティブファイルシステム)。
+次のアクションはステップ2(`eslint-plugin-react-hooks` は導入済みのため、パラダイムの違いの言語化が中心)。
 
 ---
 
@@ -82,3 +81,18 @@ ts-tetris の初期コミット時点のファイル構成(`.gitignore` / `CLAUD
 - 詰まった点: なし
 - 新しく理解したReactの概念: (該当なし。リポジトリ整備のみ)
 - 次回やること: ステップ1(Vite react-ts 環境構築 + ts-tetris の tsconfig/ESLint/Prettier 設定の移植)に着手する。
+
+## 2026-09-10 (3)
+
+- マイルストーン / ステップ: 第0マイルストーン / 1. Vite(react-ts)環境構築 + ts-tetris設定移植(完了)
+- やったこと:
+  - スクラッチパッドで `npm create vite@latest -- --template react-ts` を実行し、`index.html` / `package.json` / `tsconfig*.json` / `vite.config.ts` / `src/` / `public/` をプロジェクトルートに移植。
+  - 最新のcreate-viteテンプレートではデフォルトlinterがESLintから**oxlint**に変わっていることが判明(`.oxlintrc.json`が生成される)。学習計画書3節・7節がESLint + `eslint-plugin-react-hooks`(特に`exhaustive-deps`)を明記していたため、ユーザーに確認しESLintを採用する方針で進めた。
+  - `tsconfig.app.json`(ブラウザ向け・`src/`用)と`tsconfig.node.json`(Node向け・`vite.config.ts`用)の両方に `strict: true` と `noUncheckedIndexedAccess: true` を追加。ts-tetrisの単一`tsconfig.json`と違い、react-tsテンプレートではProject References(`tsc -b`)で2種類の実行環境(ブラウザ/Node)を分離している構成だった。
+  - `eslint.config.js` をts-tetris版をベースに作成。`eslint-plugin-react-hooks` v7の `configs.recommended` は配列形式`plugins`(ESLint 9以前互換)でFlat Config非対応だったため、`configs.flat["recommended-latest"]` を使うよう修正して解決(`node -e`でパッケージの実際のエクスポートを調べて確認)。
+  - `.prettierrc` / `.prettierignore` をts-tetrisから移植。`npm run format:fix` でVite雛形のフォーマットを統一。
+  - `npm run dev` / `typecheck` / `lint` / `format` がすべて通ることを確認。ユーザー自身が `npm run dev` を実行しブラウザで画面表示を確認済み。
+  - ユーザーからの質問に回答: `tsconfig.app.json`/`tsconfig.node.json`分割の理由(ブラウザ向けコードとNode向けコードで必要なグローバル型・モジュール解決方式が異なるため)、`vite.config.ts`を`.ts`にする利点(補完/型チェック/プラグインの型安全性)、それがReact導入と無関係であること(`vanilla-ts`テンプレートを実際に生成して比較し、素の`vanilla-ts`にはvite.config自体が生成されないことを確認。`.ts`化は「設定すべきプラグインがあるかどうか」に依存し、React固有の話ではない)。
+- 詰まった点(TS由来 / React由来 / JS由来 / 環境由来): TS由来ではなくツールのエコシステム由来。Vite最新テンプレートのデフォルトlinterがoxlintに変わっていたこと、`eslint-plugin-react-hooks` v7のFlat Config用エクスポート名(`configs.flat["recommended-latest"]`)が非自明だったことが「詰まった点」に近い。いずれも`.d.ts`ではなくpackageの実際のエクスポートを確認して解決した点は2.4節の主旨に沿う経験だった。
+- 新しく理解したReactの概念: (該当なし。ステップ1は環境構築が主眼)
+- 次回やること: ステップ2(`eslint-plugin-react-hooks`は導入済みのため、ts-tetrisとのパラダイムの違いの言語化が中心)に着手する。
