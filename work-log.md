@@ -48,7 +48,11 @@
 
 ## 現在の状態(最新状態を上書きで更新)
 
-プロジェクト未着手。`learning-plan.md` と `work-log.md` を作成した段階。
+環境構築(ステップ1)の前段階として、リポジトリの下地を整備済み。
+`git init` 済み(`main` ブランチ、ファーストコミット `9b90a23` 済み)。`.gitignore` / `README.md` / `CLAUDE.md` を作成。
+`.claude/hooks/`(`worklog-session-start.sh` / `worklog-stop-check.sh`)と `.claude/settings.json` により、
+セッション中に `work-log.md` が未更新のまま終了しようとするとブロックされる仕組みを ts-tetris から移植済み(`.claude/` は `.gitignore` により非追跡)。
+ts-tetris の初期コミット時点のファイル構成(`.gitignore` / `CLAUDE.md` / `README.md` / 学習計画書 / `work-log.md` の5点)と比較し、抜け漏れがないことを確認済み。
 次のアクションはステップ1(Vite `react-ts` テンプレートでの環境構築、および `ts-tetris` の
 `tsconfig.json` / ESLint / Prettier 設定の移植)。
 
@@ -64,4 +68,17 @@
 - やったこと: プロジェクトディレクトリ `~/projects/react-todo` を作成。`learning-plan.md`(React学習プロジェクト指示書)と `work-log.md` を、`ts-tetris` の運用形式を参考に作成。
 - 詰まった点: なし
 - 新しく理解したReactの概念: (該当なし。まだ着手前)
+- 次回やること: ステップ1(Vite react-ts 環境構築 + ts-tetris の tsconfig/ESLint/Prettier 設定の移植)に着手する。
+
+## 2026-09-10 (2)
+
+- マイルストーン / ステップ: (準備段階、ステップ1着手前)
+- やったこと:
+  - `git init` して `main` ブランチでファーストコミット(`.gitignore` / `CLAUDE.md` / `README.md` / `learning-plan.md` / `work-log.md`)を実施。
+  - `.gitignore`(node_modules/dist/エディタ/OS由来ファイル、`.claude` を除外)と `README.md`(概要・技術スタック予定・セットアップ手順・学習プロセス)を ts-tetris を参考に作成。
+  - ts-tetris の `.claude/hooks/worklog-session-start.sh` と `worklog-stop-check.sh` を移植し、`.claude/settings.json` に SessionStart/Stop フックとして登録。セッション終了時に `work-log.md` が未更新だと終了がブロックされる仕組みが react-todo でも有効になっていることを、このエントリ追記自体がブロックを解消する形で確認した。
+  - `.claude/settings.local.json` に `outputStyle: "Learning"` を設定。
+  - ts-tetris の実際の初期コミット(`faccb30`)のファイル構成を `git show --stat` / `git ls-tree` で確認し、react-todo の現状(5ファイル)と完全一致することを確認。`.devcontainer/` や `.github/workflows/` はts-tetris でもステップ11〜13相当まで存在しなかったため、現段階での追加は不要と判断。
+- 詰まった点: なし
+- 新しく理解したReactの概念: (該当なし。リポジトリ整備のみ)
 - 次回やること: ステップ1(Vite react-ts 環境構築 + ts-tetris の tsconfig/ESLint/Prettier 設定の移植)に着手する。
