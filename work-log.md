@@ -28,8 +28,8 @@
 | マイルストーン | ステップ | 状態 |
 |---|---|---|
 | 第0: 足場を作る | 1. Vite(react-ts)環境構築 + ts-tetris設定移植 | 完了 |
-| 第0 | 2. eslint-plugin-react-hooks導入 + パラダイムの違いの言語化 | 未着手 |
-| 第1: fetchなしのReact基礎 | 3. useStateとpropsでハードコード配列を表示 | 未着手 |
+| 第0 | 2. eslint-plugin-react-hooks導入 + パラダイムの違いの言語化 | 完了 |
+| 第1: fetchなしのReact基礎 | 3. useStateとpropsでハードコード配列を表示 | 完了 |
 | 第1 | 4. 追加・削除・完了トグル(状態の不変更新) | 未着手 |
 | 第1 | 5. コンポーネント分割 | 未着手 |
 | 第1 | 6. useEffect初体験 — localStorage永続化 | 未着手 |
@@ -55,7 +55,8 @@ ESLintはFlat Configで `typescript-eslint` の `recommendedTypeChecked` + `esli
 Vite最新テンプレートのデフォルトlinterがoxlintに変わっていたが、学習計画書の方針(ESLint + eslint-plugin-react-hooks)を優先しユーザーと相談の上ESLintを採用した。
 
 作業拠点は `~/projects/react-todo`(WSL2ネイティブファイルシステム)。
-次のアクションはステップ2(`eslint-plugin-react-hooks` は導入済みのため、パラダイムの違いの言語化が中心)。
+ステップ2(パラダイムの違いの言語化)完了。「グローバルGameState+rAFポーリング」から「コンポーネントごとのuseState+イベント駆動の自動再レンダリング」への転換を学習者が自分の言葉で説明できることを確認済み。
+次のアクションはステップ3(`useState`とpropsでハードコード配列を表示)。Todo型の定義をTODO(human)として学習者に依頼するところから開始する。
 
 ---
 
@@ -96,3 +97,28 @@ Vite最新テンプレートのデフォルトlinterがoxlintに変わってい�
 - 詰まった点(TS由来 / React由来 / JS由来 / 環境由来): TS由来ではなくツールのエコシステム由来。Vite最新テンプレートのデフォルトlinterがoxlintに変わっていたこと、`eslint-plugin-react-hooks` v7のFlat Config用エクスポート名(`configs.flat["recommended-latest"]`)が非自明だったことが「詰まった点」に近い。いずれも`.d.ts`ではなくpackageの実際のエクスポートを確認して解決した点は2.4節の主旨に沿う経験だった。
 - 新しく理解したReactの概念: (該当なし。ステップ1は環境構築が主眼)
 - 次回やること: ステップ2(`eslint-plugin-react-hooks`は導入済みのため、ts-tetrisとのパラダイムの違いの言語化が中心)に着手する。
+
+## 2026-09-11
+
+- マイルストーン / ステップ: 第0マイルストーン / 2. eslint-plugin-react-hooks導入 + パラダイムの違いの言語化(完了)
+- やったこと:
+  - `src/App.tsx` に残っていたVite雛形のカウンターボタン(`useState` + `onClick`)を教材に、宣言的UIと再レンダリングの考え方をClaudeから説明。
+  - learning-plan.md 1.3節の対応表(描画/更新タイミング/状態の置き場所/副作用/データの出所)を提示し、ts-tetrisのゲームループがReactではどこに「消えた」のかを学習者自身の言葉で説明するよう依頼。
+  - 手を動かす小実験として、`App()` 先頭に `console.log` を一時的に足してカウンターボタンをクリックし、関数が丸ごと再実行される様子をDevToolsのConsoleで確認する方法を提示(learning-plan.md 8節に沿った方法)。
+  - 学習者が「ts-tetrisは1つのグローバルGameStateを持ちrequestAnimationFrameで再レンダリングしていたが、Reactでは各コンポーネントがuseStateを持ち、状態が変わるとReactが自動的に再レンダリングする」と説明し、核心を正確に言語化できたことを確認。
+- 詰まった点(TS由来 / React由来 / JS由来 / 環境由来): (該当なし。今回は説明フェーズ)
+- 新しく理解したReactの概念: 「監視して気づく(ポーリング)」から「呼ばれたら動く(イベント駆動のスケジューリング)」への転換。また、状態をコンポーネント単位に分散させることで再計算の範囲を区切っている、という含意。
+- 次回やること: ステップ3(`useState`とpropsでハードコード配列を表示)に着手する。Todo型の定義から開始。
+
+## 2026-09-11 (2)
+
+- マイルストーン / ステップ: 第1マイルストーン / 3. useStateとpropsでハードコード配列を表示(完了)
+- やったこと:
+  - `src/types.ts` に `Todo` 型(`id: string` / `title: string` / `done: boolean`)を学習者が定義。TODO(human)を提示。
+  - Vite雛形の中身(カウンターボタン等)を撤去し、`src/App.tsx` を `useState<Todo[]>` でハードコードした3件のTodoを保持する形に書き換え(Claudeが実装)。
+  - `src/TodoItem.tsx` を新規作成し、`todo` を1件受け取ってチェックボックス付きで表示する形に。`TodoItemProps` の型定義(`todo: Readonly<Todo>`)は学習者がTODO(human)として実装。`Readonly<Todo>` を選んだ理由(4.2節の不変性の発想をpropsにも適用)を確認。
+  - `npm run typecheck` / `npm run lint` / `npm run format:fix` すべて通過を確認。
+  - `<TodoItem key={todo.id} todo={todo} />` の `key` の役割について、学習者と1往復の議論。最初の回答(「必要なときだけ再レンダリング」)はReact.memoによる最適化の話と混同していたため、真ん中の要素を削除したときのindex-keyの不具合例を提示して修正を促し、最終的に「一意な識別子として要素の同一性を保ち、削除・並び替え時にもDOM/内部状態を正しく対応付ける」という正しい説明に到達。
+- 詰まった点(TS由来 / React由来 / JS由来 / 環境由来): React由来。`key`の役割をReact.memoによる再レンダリング最適化と混同する誤解が最初に出たが、具体例(配列途中の削除とindex-keyのズレ)を示して解消した。
+- 新しく理解したReactの概念: `key`は「配列要素の同一性(identity)をレンダリング間で保つための識別子」であり、再レンダリングの要否を制御する最適化とは別物であること。`Readonly<T>`というTypeScriptのMapped Typeについても軽く触れた。
+- 次回やること: ステップ4(追加・削除・完了トグル — 状態の不変更新)に着手する。
