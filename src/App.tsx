@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { Todo } from "./types";
-import { TodoItem } from "./TodoItem";
+import { TodoList } from "./TodoList";
+import { AddTodoForm } from "./AddTodoForm";
 import { addTodo, removeTodo, toggleTodo } from "./todoOperations";
 
 const initialTodos: Todo[] = [
@@ -11,7 +12,6 @@ const initialTodos: Todo[] = [
 
 function App() {
   const [todos, setTodos] = useState<readonly Todo[]>(initialTodos);
-  const [newTitle, setNewTitle] = useState("");
 
   const handleToggle = (id: string) => {
     setTodos(toggleTodo(todos, id));
@@ -21,34 +21,14 @@ function App() {
     setTodos(removeTodo(todos, id));
   };
 
-  const handleAdd = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (newTitle.trim() === "") return;
-    setTodos(addTodo(todos, newTitle));
-    setNewTitle("");
+  const handleAdd = (title: string) => {
+    setTodos(addTodo(todos, title));
   };
 
   return (
     <>
-      <form onSubmit={handleAdd}>
-        <input
-          type="text"
-          value={newTitle}
-          onChange={(e) => setNewTitle(e.target.value)}
-          placeholder="新しいTodo"
-        />
-        <button type="submit">追加</button>
-      </form>
-      <ul>
-        {todos.map((todo) => (
-          <TodoItem
-            key={todo.id}
-            todo={todo}
-            onToggle={handleToggle}
-            onRemove={handleRemove}
-          />
-        ))}
-      </ul>
+      <AddTodoForm onAdd={handleAdd} />
+      <TodoList todos={todos} onToggle={handleToggle} onRemove={handleRemove} />
     </>
   );
 }

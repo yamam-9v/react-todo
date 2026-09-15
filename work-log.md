@@ -31,7 +31,7 @@
 | 第0 | 2. eslint-plugin-react-hooks導入 + パラダイムの違いの言語化 | 完了 |
 | 第1: fetchなしのReact基礎 | 3. useStateとpropsでハードコード配列を表示 | 完了 |
 | 第1 | 4. 追加・削除・完了トグル(状態の不変更新) | 完了 |
-| 第1 | 5. コンポーネント分割 | 未着手 |
+| 第1 | 5. コンポーネント分割 | 完了 |
 | 第1 | 6. useEffect初体験 — localStorage永続化 | 未着手 |
 | 第2: 通信とバリデーション | 7. json-server導入 + TodoRepositoryインターフェース設計 | 未着手 |
 | 第2 | 8. fetchによるCRUDと3状態の判別可能ユニオン | 未着手 |
@@ -58,7 +58,7 @@ Vite最新テンプレートのデフォルトlinterがoxlintに変わってい�
 ステップ2(パラダイムの違いの言語化)完了。「グローバルGameState+rAFポーリング」から「コンポーネントごとのuseState+イベント駆動の自動再レンダリング」への転換を学習者が自分の言葉で説明できることを確認済み。
 ステップ3(useStateとpropsでハードコード配列を表示)完了。`Todo`型、`TodoItemProps`型を学習者が定義し、`key`の役割(要素の同一性の保持)を正しく言語化できることを確認済み。
 ステップ4(追加・削除・完了トグル)完了。`src/todoOperations.ts`に`toggleTodo`/`removeTodo`/`addTodo`の3つの純粋関数を実装済み。`App.tsx`(useState<readonly Todo[]>、setTodos、各ハンドラ、追加フォーム)と`TodoItem.tsx`(onToggle/onRemove props、チェックボックスのonChange、削除ボタン)の配線はClaudeが実装。ブラウザでの動作確認(トグル/削除/追加/最後の1件の削除)まで完了。
-次のアクションはステップ5(コンポーネント分割)に着手する。
+ステップ5(コンポーネント分割)完了。`App.tsx`を`AddTodoForm.tsx`(追加フォーム)と`TodoList.tsx`(一覧表示)に分割し、`todos`stateは`App`のみが持つ設計にした。次のアクションはステップ6(useEffect初体験 — localStorage永続化)に着手する。
 
 ---
 
@@ -141,3 +141,19 @@ Vite最新テンプレートのデフォルトlinterがoxlintに変わってい�
   補足: 環境/TS由来として、プレースホルダ実装が`noUnusedParameters`に引っかかった件も発生。
 - 新しく理解したReactの概念: `setState`(`setTodos`)は新旧の値を`Object.is`で比較し、同一参照であれば再レンダリングをスキップする。「配列の複製」だけでは不十分で、変更したい要素についても新しいオブジェクトを作って差し替える必要がある(浅い複製と深い不変更新の違い)。
 - 次回やること: ステップ5(コンポーネント分割)に着手する。
+
+## 2026-09-15
+
+- マイルストーン / ステップ: 第1マイルストーン / 5. コンポーネント分割(完了)
+- やったこと:
+  - セッション開始時に`learning-plan.md`/`work-log.md`を読み込み、ステップ4完了時点からの再開であることを確認。
+  - 現状の`App.tsx`(フォーム+リスト表示+3ハンドラが1コンポーネントに同居)、`TodoItem.tsx`、`todoOperations.ts`、`types.ts`をレビュー。`toggleTodo`/`removeTodo`/`addTodo`いずれも不変更新の原則を満たしていることを確認。
+  - `todoOperations.ts`に残っていた実装済みの`TODO(human)`コメント(ステップ4のもの)を学習者の指示で削除。
+  - コードを書く前に、学習者へ分割方針を問う設計相談を実施。学習者は当初「`AddTodoForm`と`TodoList`がそれぞれ独立に`todos`stateを持つ」案を提示したが、対話の中で「兄弟コンポーネント間でstateを直接共有できない」という単方向データフローの制約に気づき、最終的に「`todos`stateは`App`のみが持ち、propsで子に渡す(state lifting up)」という正しい設計に到達。
+  - `src/AddTodoForm.tsx`を新規作成。`newTitle`のuseStateとフォームJSXを持ち、`AddTodoFormProps`(`onAdd: (title: string) => void`)は学習者がTODO(human)として実装。実装過程で「`addTodo(todos, newTitle)`を呼ぶのに`todos`が要るのでは」という疑問が出たが、「`todos`を使った計算は、`todos`をすでに持っている`App`側の`handleAdd`が行う」という役割分担を説明し、コールバックpropsが「子から親への通知」であり値を`return`するものではないことの理解に至った。
+  - `src/TodoList.tsx`を新規作成。`todos`/`onToggle`/`onRemove`を受け取り`TodoItem`へ橋渡しする役割。`TodoListProps`は学習者がTODO(human)として実装(1回で正しく完了)。
+  - `App.tsx`を`AddTodoForm`と`TodoList`を呼び出す形に書き換え(Claudeが実装)、`handleAdd`は`(title: string) => setTodos(addTodo(todos, title))`という形に変更(`todos`はAppのclosureから参照)。
+  - `npm run typecheck` / `npm run lint` / `npm run format:fix` すべて通過を確認。ブラウザで追加・トグル・削除・最後の1件削除の動作確認を学習者が実施済み。
+- 詰まった点(TS由来 / React由来 / JS由来 / 環境由来): React由来。(a) 兄弟コンポーネントが独立したstateを持つと同期できないという誤解(単方向データフロー・state lifting upの理解不足)、(b) コールバックpropsについて「子が親の関数に必要な全データ(todos)まで渡す必要があるのでは」という誤解(親がすでに持っているデータは渡す必要がなく、新規に発生した情報だけを渡せばよいという役割分担の理解不足)。どちらも対話で正しい理解に到達。
+- 新しく理解したReactの概念: (1) propsのバケツリレー/state lifting up — stateは唯一の情報源(single source of truth)として共通の親が持ち、兄弟コンポーネントはそれぞれ独立した複製を持つのではなく、propsを通じて同じ状態を参照する。(2) コールバックによる子→親通知 — 子は親から渡された関数に引数(新しく発生した情報)だけを渡して呼び出し、関数の中身(実際の状態更新ロジック)を知る必要はない。
+- 次回やること: ステップ6(`useEffect`初体験 — localStorage永続化)に着手する。
