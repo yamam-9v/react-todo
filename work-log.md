@@ -59,7 +59,8 @@ Vite最新テンプレートのデフォルトlinterがoxlintに変わってい�
 ステップ3(useStateとpropsでハードコード配列を表示)完了。`Todo`型、`TodoItemProps`型を学習者が定義し、`key`の役割(要素の同一性の保持)を正しく言語化できることを確認済み。
 ステップ4(追加・削除・完了トグル)完了。`src/todoOperations.ts`に`toggleTodo`/`removeTodo`/`addTodo`の3つの純粋関数を実装済み。`App.tsx`(useState<readonly Todo[]>、setTodos、各ハンドラ、追加フォーム)と`TodoItem.tsx`(onToggle/onRemove props、チェックボックスのonChange、削除ボタン)の配線はClaudeが実装。ブラウザでの動作確認(トグル/削除/追加/最後の1件の削除)まで完了。
 ステップ5(コンポーネント分割)完了。`App.tsx`を`AddTodoForm.tsx`(追加フォーム)と`TodoList.tsx`(一覧表示)に分割し、`todos`stateは`App`のみが持つ設計にした。
-ステップ6(useEffect初体験 — localStorage永続化)完了。ts-tetrisの`loadFromStorage<T>`を`src/storage.ts`に移植(型ガード`isValidTodos`/`isValidTodo`、`loadFromStorage`、`saveToStorage`)。`App.tsx`は`useState`の初期化関数で起動時に一度だけlocalStorageを読み込み(なければ`initialTodos`にフォールバック)、`useEffect(() => { saveToStorage(...) }, [todos])`で`todos`が変わるたびに書き込む設計にした。次回はステップ7(json-server導入 + `TodoRepository`インターフェース設計)に着手する。
+ステップ6(useEffect初体験 — localStorage永続化)完了。ts-tetrisの`loadFromStorage<T>`を`src/storage.ts`に移植(型ガード`isValidTodos`/`isValidTodo`、`loadFromStorage`、`saveToStorage`)。`App.tsx`は`useState`の初期化関数で起動時に一度だけlocalStorageを読み込み(なければ`initialTodos`にフォールバック)、`useEffect(() => { saveToStorage(...) }, [todos])`で`todos`が変わるたびに書き込む設計にした。
+GitHub issueでの進捗管理を開始(マイルストーン0〜4を親issue、ステップ1〜16を子issueとしてSub-issues機能で紐付け。完了済みのマイルストーン0・1とステップ1〜6はclose、ステップ7以降はopenのまま)。次回はステップ7(#1、json-server導入 + `TodoRepository`インターフェース設計)に着手する。
 
 ---
 
@@ -175,3 +176,16 @@ Vite最新テンプレートのデフォルトlinterがoxlintに変わってい�
 - 詰まった点(TS由来 / React由来 / JS由来 / 環境由来): React由来(軽微)。「依存配列なし=即無限ループのリスク」という理解がやや粗く、「中でsetStateを呼んでいるか」という条件が抜けていた。対話で訂正済み。
 - 新しく理解したReactの概念: (1) 読み込みは`useState`の初期化関数(lazy initializer)、書き込みは`useEffect`という役割分担 — 両方をuseEffectでやると初回に無駄な二度描画が起きる。(2) `useEffect`の依存配列チェックは`Object.is`による参照比較であり、不変更新の原則(ステップ4)がここでも効いてくる。(3) 無限ループは「依存配列の書き方」単体ではなく「useEffect内でのsetState呼び出し + その実行条件」の組み合わせで起きる。
 - 次回やること: ステップ7(json-server導入 + `TodoRepository`インターフェース設計)に着手する。
+
+## 2026-09-18
+
+- マイルストーン / ステップ: (該当なし。React学習ではなく開発運用タスク)
+- やったこと:
+  - GitHub issueでの進捗管理を導入。まずステップ7のissue(タイトル・ボディはClaudeが作成)を学習者自身が`gh issue create`で手動作成する練習を実施(→ #1)。
+  - `gh`のバージョン(2.101.0)がSub-issues機能(`gh issue create --parent` / `gh issue edit --parent`)に対応していることを確認。
+  - マイルストーン0〜4を親issue(#2〜#6)、ステップ1〜6・8〜16を子issue(#7〜#21、`--parent`で対応するマイルストーンに紐付け)として一括作成するスクリプトを`/tmp`のスクラッチパッドに作成し実行。既存のステップ7issue(#1)には`gh issue edit --parent`で後からマイルストーン2(#4)を親として設定。
+  - 完了済みのマイルストーン0・1(#2, #3)とステップ1〜6(#7〜#12)は作成後`gh issue close`でclose(work-log.md参照のコメント付き)。ステップ7以降・マイルストーン2〜4はopenのまま。
+  - `gh issue list --state all`で全21件の状態(親子関係・open/closed)を最終確認。
+- 詰まった点(TS由来 / React由来 / JS由来 / 環境由来): (該当なし)
+- 新しく理解したReactの概念: (該当なし。開発運用タスクのため)
+- 次回やること: ステップ7(#1)に着手する。
