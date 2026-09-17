@@ -32,7 +32,7 @@
 | 第1: fetchなしのReact基礎 | 3. useStateとpropsでハードコード配列を表示 | 完了 |
 | 第1 | 4. 追加・削除・完了トグル(状態の不変更新) | 完了 |
 | 第1 | 5. コンポーネント分割 | 完了 |
-| 第1 | 6. useEffect初体験 — localStorage永続化 | 未着手 |
+| 第1 | 6. useEffect初体験 — localStorage永続化 | 完了 |
 | 第2: 通信とバリデーション | 7. json-server導入 + TodoRepositoryインターフェース設計 | 未着手 |
 | 第2 | 8. fetchによるCRUDと3状態の判別可能ユニオン | 未着手 |
 | 第2 | 9. Zod導入 + 型定義(.d.ts)を読む | 未着手 |
@@ -58,7 +58,8 @@ Vite最新テンプレートのデフォルトlinterがoxlintに変わってい�
 ステップ2(パラダイムの違いの言語化)完了。「グローバルGameState+rAFポーリング」から「コンポーネントごとのuseState+イベント駆動の自動再レンダリング」への転換を学習者が自分の言葉で説明できることを確認済み。
 ステップ3(useStateとpropsでハードコード配列を表示)完了。`Todo`型、`TodoItemProps`型を学習者が定義し、`key`の役割(要素の同一性の保持)を正しく言語化できることを確認済み。
 ステップ4(追加・削除・完了トグル)完了。`src/todoOperations.ts`に`toggleTodo`/`removeTodo`/`addTodo`の3つの純粋関数を実装済み。`App.tsx`(useState<readonly Todo[]>、setTodos、各ハンドラ、追加フォーム)と`TodoItem.tsx`(onToggle/onRemove props、チェックボックスのonChange、削除ボタン)の配線はClaudeが実装。ブラウザでの動作確認(トグル/削除/追加/最後の1件の削除)まで完了。
-ステップ5(コンポーネント分割)完了。`App.tsx`を`AddTodoForm.tsx`(追加フォーム)と`TodoList.tsx`(一覧表示)に分割し、`todos`stateは`App`のみが持つ設計にした。次のアクションはステップ6(useEffect初体験 — localStorage永続化)に着手する。
+ステップ5(コンポーネント分割)完了。`App.tsx`を`AddTodoForm.tsx`(追加フォーム)と`TodoList.tsx`(一覧表示)に分割し、`todos`stateは`App`のみが持つ設計にした。
+ステップ6(useEffect初体験 — localStorage永続化)完了。ts-tetrisの`loadFromStorage<T>`を`src/storage.ts`に移植(型ガード`isValidTodos`/`isValidTodo`、`loadFromStorage`、`saveToStorage`)。`App.tsx`は`useState`の初期化関数で起動時に一度だけlocalStorageを読み込み(なければ`initialTodos`にフォールバック)、`useEffect(() => { saveToStorage(...) }, [todos])`で`todos`が変わるたびに書き込む設計にした。次回はステップ7(json-server導入 + `TodoRepository`インターフェース設計)に着手する。
 
 ---
 
@@ -157,3 +158,20 @@ Vite最新テンプレートのデフォルトlinterがoxlintに変わってい�
 - 詰まった点(TS由来 / React由来 / JS由来 / 環境由来): React由来。(a) 兄弟コンポーネントが独立したstateを持つと同期できないという誤解(単方向データフロー・state lifting upの理解不足)、(b) コールバックpropsについて「子が親の関数に必要な全データ(todos)まで渡す必要があるのでは」という誤解(親がすでに持っているデータは渡す必要がなく、新規に発生した情報だけを渡せばよいという役割分担の理解不足)。どちらも対話で正しい理解に到達。
 - 新しく理解したReactの概念: (1) propsのバケツリレー/state lifting up — stateは唯一の情報源(single source of truth)として共通の親が持ち、兄弟コンポーネントはそれぞれ独立した複製を持つのではなく、propsを通じて同じ状態を参照する。(2) コールバックによる子→親通知 — 子は親から渡された関数に引数(新しく発生した情報)だけを渡して呼び出し、関数の中身(実際の状態更新ロジック)を知る必要はない。
 - 次回やること: ステップ6(`useEffect`初体験 — localStorage永続化)に着手する。
+
+## 2026-09-17
+
+- マイルストーン / ステップ: 第1マイルストーン / 6. useEffect初体験 — localStorage永続化(完了)
+- やったこと:
+  - セッション開始時に`learning-plan.md`/`work-log.md`を読み込み、ステップ5完了時点からの再開であることを確認。
+  - `App.tsx`/`types.ts`/`todoOperations.ts`の現状をレビューし、不変性の原則が保たれていることを再確認。
+  - ts-tetrisの`src/storage.ts`(`isValidHighScore`型ガードと`loadFromStorage<T>`)を参照。型ガードの書き方は既習のため、react-todo側の`storage.ts`はClaudeが実装する方針とした。
+  - 設計方針として、読み込みは`useState`の初期化関数(lazy initializer)、書き込みは`useEffect`で行う分担を提示。理由(useEffectだけで読み込みもやると初回に空配列描画→再読み込みで二度描画になる)をInsightとして説明。
+  - 学習者への設計相談として、「書き込み用useEffectの依存配列には何を入れるべきか」「クリーンアップ関数は必要か」を問いかけ、学習者は「依存配列は`[todos]`、書き込みは同期処理なのでクリーンアップ不要」と正しく回答。不変更新の原則が`useEffect`の依存配列チェック(`Object.is`による参照比較)にもそのまま効くという繋がりをInsightとして補足。
+  - `src/storage.ts`を新規作成(`isValidTodo`/`isValidTodos`型ガード、`loadFromStorage<T>`、`saveToStorage<T>`)。`App.tsx`の`useState`をlazy initializerに変更する配線までClaudeが実装し、書き込み用`useEffect`本体は`TODO(human)`として学習者が実装(1回で正しく完了: `useEffect(() => { saveToStorage(STORAGE_KEY, todos); }, [todos]);`)。
+  - `npm run typecheck` / `npm run lint`が通過(`react-hooks/exhaustive-deps`の警告なし)を確認。学習者がブラウザで追加・トグル・削除後にリロードしても消えないこと、DevToolsのLocal Storageに`react-todo:todos`キーでJSONが保存されていることを実地確認。
+  - 学習者に「新しく理解したReactの概念」を一言で言わせたところ、(1)読み込みをuseEffectでなくuseStateの初期化関数で行う理由(二度描画の回避)、(2)依存配列の3パターン(空配列=初回のみ/特定変数=変更時/省略=毎回)を正しく言語化。ただし「依存配列を指定しないと無限ループのリスクがある」という表現がやや不正確だったため、「無限ループが起きるのはuseEffect内でsetStateを呼び、かつその実行条件が満たされ続ける場合」という条件を補足し、今回の実装(setStateを呼んでいない)は依存配列の書き方によらず無限ループにならないことを確認した。
+  - TODOコメントを削除し、typecheck/lint/format:fixが全て通過することを確認。
+- 詰まった点(TS由来 / React由来 / JS由来 / 環境由来): React由来(軽微)。「依存配列なし=即無限ループのリスク」という理解がやや粗く、「中でsetStateを呼んでいるか」という条件が抜けていた。対話で訂正済み。
+- 新しく理解したReactの概念: (1) 読み込みは`useState`の初期化関数(lazy initializer)、書き込みは`useEffect`という役割分担 — 両方をuseEffectでやると初回に無駄な二度描画が起きる。(2) `useEffect`の依存配列チェックは`Object.is`による参照比較であり、不変更新の原則(ステップ4)がここでも効いてくる。(3) 無限ループは「依存配列の書き方」単体ではなく「useEffect内でのsetState呼び出し + その実行条件」の組み合わせで起きる。
+- 次回やること: ステップ7(json-server導入 + `TodoRepository`インターフェース設計)に着手する。

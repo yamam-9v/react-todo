@@ -1,8 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Todo } from "./types";
 import { TodoList } from "./TodoList";
 import { AddTodoForm } from "./AddTodoForm";
 import { addTodo, removeTodo, toggleTodo } from "./todoOperations";
+import { isValidTodos, loadFromStorage, saveToStorage } from "./storage";
+
+const STORAGE_KEY = "react-todo:todos";
 
 const initialTodos: Todo[] = [
   { id: "1", title: "Reactの基礎を学ぶ", done: false },
@@ -11,7 +14,13 @@ const initialTodos: Todo[] = [
 ];
 
 function App() {
-  const [todos, setTodos] = useState<readonly Todo[]>(initialTodos);
+  const [todos, setTodos] = useState<readonly Todo[]>(
+    () => loadFromStorage(STORAGE_KEY, isValidTodos) ?? initialTodos,
+  );
+
+  useEffect(() => {
+    saveToStorage(STORAGE_KEY, todos);
+  }, [todos]);
 
   const handleToggle = (id: string) => {
     setTodos(toggleTodo(todos, id));
