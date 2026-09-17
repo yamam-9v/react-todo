@@ -33,7 +33,7 @@
 | 第1 | 4. 追加・削除・完了トグル(状態の不変更新) | 完了 |
 | 第1 | 5. コンポーネント分割 | 完了 |
 | 第1 | 6. useEffect初体験 — localStorage永続化 | 完了 |
-| 第2: 通信とバリデーション | 7. json-server導入 + TodoRepositoryインターフェース設計 | 未着手 |
+| 第2: 通信とバリデーション | 7. json-server導入 + TodoRepositoryインターフェース設計 | 完了 |
 | 第2 | 8. fetchによるCRUDと3状態の判別可能ユニオン | 未着手 |
 | 第2 | 9. Zod導入 + 型定義(.d.ts)を読む | 未着手 |
 | 第2 | 10. Vitest + React Testing Library(最小限) | 未着手 |
@@ -60,7 +60,8 @@ Vite最新テンプレートのデフォルトlinterがoxlintに変わってい�
 ステップ4(追加・削除・完了トグル)完了。`src/todoOperations.ts`に`toggleTodo`/`removeTodo`/`addTodo`の3つの純粋関数を実装済み。`App.tsx`(useState<readonly Todo[]>、setTodos、各ハンドラ、追加フォーム)と`TodoItem.tsx`(onToggle/onRemove props、チェックボックスのonChange、削除ボタン)の配線はClaudeが実装。ブラウザでの動作確認(トグル/削除/追加/最後の1件の削除)まで完了。
 ステップ5(コンポーネント分割)完了。`App.tsx`を`AddTodoForm.tsx`(追加フォーム)と`TodoList.tsx`(一覧表示)に分割し、`todos`stateは`App`のみが持つ設計にした。
 ステップ6(useEffect初体験 — localStorage永続化)完了。ts-tetrisの`loadFromStorage<T>`を`src/storage.ts`に移植(型ガード`isValidTodos`/`isValidTodo`、`loadFromStorage`、`saveToStorage`)。`App.tsx`は`useState`の初期化関数で起動時に一度だけlocalStorageを読み込み(なければ`initialTodos`にフォールバック)、`useEffect(() => { saveToStorage(...) }, [todos])`で`todos`が変わるたびに書き込む設計にした。
-GitHub issueでの進捗管理を開始(マイルストーン0〜4を親issue、ステップ1〜16を子issueとしてSub-issues機能で紐付け。完了済みのマイルストーン0・1とステップ1〜6はclose、ステップ7以降はopenのまま)。次回はステップ7(#1、json-server導入 + `TodoRepository`インターフェース設計)に着手する。
+GitHub issueでの進捗管理を開始(マイルストーン0〜4を親issue、ステップ1〜16を子issueとしてSub-issues機能で紐付け。完了済みのマイルストーン0・1とステップ1〜6はclose、ステップ7以降はopenのまま)。
+ステップ7(json-server導入 + TodoRepositoryインターフェース設計)完了。json-server(v1 beta)を導入し`db.json`(初期3件)と`npm run server`(port 3001)を用意。`src/todoRepository.ts`に`TodoRepository`インターフェース(list/create/update/remove)と入力用の`TodoInput`型を学習者が定義。次回はステップ8(fetchによるCRUDと3状態の判別可能ユニオン、issue #13)に着手する。
 
 ---
 
@@ -189,3 +190,16 @@ GitHub issueでの進捗管理を開始(マイルストーン0〜4を親issue、
 - 詰まった点(TS由来 / React由来 / JS由来 / 環境由来): (該当なし)
 - 新しく理解したReactの概念: (該当なし。開発運用タスクのため)
 - 次回やること: ステップ7(#1)に着手する。
+
+## 2026-09-18 (2)
+
+- マイルストーン / ステップ: 第2マイルストーン / 7. json-server導入 + TodoRepositoryインターフェース設計(完了)
+- やったこと:
+  - `json-server`をdevDependencyとして導入。npm registryの最新版がv1.0.0-beta.15であることが判明し、v0系とCLIオプションが大きく異なる(`--watch`オプションが無い等)ため、実際に一時ファイルでCRUD(GET/POST/PATCH/DELETE)を検証してから採用可否を判断。POSTでの自動採番IDがデフォルトで文字列(nanoid風)になっており、learning-plan.md 4.4節の「IDはstringにする」前提と相性が良いことを確認。
+  - `db.json`(初期Todo3件、これまでのハードコード配列と同じ内容)を作成。`package.json`に`"server": "json-server db.json --port 3001"`を追加し、`npm run server`で`http://localhost:3001/todos`が配信されることを確認。
+  - `src/todoRepository.ts`を新規作成。`TodoRepository`インターフェース(list/create/update/remove)は学習者がTODO(human)として実装。1回目の実装で`TodoInput`型を使用しているのに定義しておらず`tsc`エラー(`Cannot find name 'TodoInput'`)。学習者が`Omit<Todo, "id" | "done">`で解決。
+  - 2回目のレビューで2点指摘: (a) `interface TodoInput extends Omit<...> {}`という空interfaceの継承が`@typescript-eslint/no-empty-object-type`に抵触 → `type`エイリアスに変更、(b) `update`のpatch型が`Partial<TodoInput>`(=`title`のみ)になっており、ステップ4の`toggleTodo`(`done`の切り替え)をこのリポジトリ経由で呼べない設計上の欠陥。対話で「`Partial<Todo>`だと`id`も紛れ込む」ことに気づかせ、最終的に`Partial<Omit<Todo, "id">>`に修正。
+  - `npm run typecheck` / `npm run lint` / `npm run format`すべて通過を確認。TODOコメントを削除。
+- 詰まった点(TS由来 / React由来 / JS由来 / 環境由来): TS由来。(a) 型を使う前に定義し忘れるという単純なミス、(b) `create`用の入力型(`TodoInput`)と`update`用のpatch型を同じ型で済まそうとした設計判断のミス(除くべきフィールドの理由が違う: サーバが決める値を除くのか、別引数で渡しているから除くのか)。両方とも対話で自力修正に至った。環境由来として、npm registryのjson-serverデフォルトバージョンがv1 betaに変わっており、CLIオプション体系がv0系と別物になっていた点も判明(検証してから採用)。
+- 新しく理解したReactの概念: (TypeScript寄りの学びが中心)`Partial<T>`は全プロパティを任意にする、`Omit<T, K>`は指定したキーを除く。同じ`Omit`でも「サーバが決めるので呼び出し側が渡せない値を除く」(`TodoInput`)と「別引数で渡しているので重複させたくない値を除く」(`update`のpatch)は目的が異なり、型を使い回さず別々に定義すべきという判断基準。
+- 次回やること: ステップ8(fetchによるCRUDと3状態の判別可能ユニオン、issue #13)に着手する。
