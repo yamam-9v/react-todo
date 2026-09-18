@@ -34,7 +34,7 @@
 | 第1 | 5. コンポーネント分割 | 完了 |
 | 第1 | 6. useEffect初体験 — localStorage永続化 | 完了 |
 | 第2: 通信とバリデーション | 7. json-server導入 + TodoRepositoryインターフェース設計 | 完了 |
-| 第2 | 8. fetchによるCRUDと3状態の判別可能ユニオン | 未着手 |
+| 第2 | 8. fetchによるCRUDと3状態の判別可能ユニオン | 完了 |
 | 第2 | 9. Zod導入 + 型定義(.d.ts)を読む | 未着手 |
 | 第2 | 10. Vitest + React Testing Library(最小限) | 未着手 |
 | 第3: 外部APIとCORS | 11. Nager.Dateから祝日を取得して表示に反映 | 未着手 |
@@ -61,7 +61,8 @@ Vite最新テンプレートのデフォルトlinterがoxlintに変わってい�
 ステップ5(コンポーネント分割)完了。`App.tsx`を`AddTodoForm.tsx`(追加フォーム)と`TodoList.tsx`(一覧表示)に分割し、`todos`stateは`App`のみが持つ設計にした。
 ステップ6(useEffect初体験 — localStorage永続化)完了。ts-tetrisの`loadFromStorage<T>`を`src/storage.ts`に移植(型ガード`isValidTodos`/`isValidTodo`、`loadFromStorage`、`saveToStorage`)。`App.tsx`は`useState`の初期化関数で起動時に一度だけlocalStorageを読み込み(なければ`initialTodos`にフォールバック)、`useEffect(() => { saveToStorage(...) }, [todos])`で`todos`が変わるたびに書き込む設計にした。
 GitHub issueでの進捗管理を開始(マイルストーン0〜4を親issue、ステップ1〜16を子issueとしてSub-issues機能で紐付け。完了済みのマイルストーン0・1とステップ1〜6はclose、ステップ7以降はopenのまま)。
-ステップ7(json-server導入 + TodoRepositoryインターフェース設計)完了。json-server(v1 beta)を導入し`db.json`(初期3件)と`npm run server`(port 3001)を用意。`src/todoRepository.ts`に`TodoRepository`インターフェース(list/create/update/remove)と入力用の`TodoInput`型を学習者が定義。次回はステップ8(fetchによるCRUDと3状態の判別可能ユニオン、issue #13)に着手する。
+ステップ7(json-server導入 + TodoRepositoryインターフェース設計)完了。json-server(v1 beta)を導入し`db.json`(初期3件)と`npm run server`(port 3001)を用意。`src/todoRepository.ts`に`TodoRepository`インターフェース(list/create/update/remove)と入力用の`TodoInput`型を学習者が定義。
+ステップ8(fetchによるCRUDと3状態の判別可能ユニオン、issue #13)完了。`src/todoRepository.ts`に`JsonServerTodoRepository`(`fetch`ベースの実装)をClaudeが実装。`src/types.ts`の`AsyncState<T>`判別可能ユニオン型(`status`で判別する`loading`/`error`/`success`)は学習者が実装。`App.tsx`は`useState<AsyncState<readonly Todo[]>>`+`useEffect`での初回`list()`取得(競合状態を避ける`cancelled`フラグ付き)に全面書き換え。追加/トグル/削除はrepository経由の非同期処理に変更し、`todoOperations.ts`の`addTodo`はサーバ発行のIDを使うようシグネチャを変更(`crypto.randomUUID()`生成をやめ、完成済み`Todo`を受け取る形に)。`storage.ts`は削除せず維持(ステップ13でGitHub Pages用`LocalStorageTodoRepository`として再利用見込み)。
 
 ---
 
@@ -203,3 +204,36 @@ GitHub issueでの進捗管理を開始(マイルストーン0〜4を親issue、
 - 詰まった点(TS由来 / React由来 / JS由来 / 環境由来): TS由来。(a) 型を使う前に定義し忘れるという単純なミス、(b) `create`用の入力型(`TodoInput`)と`update`用のpatch型を同じ型で済まそうとした設計判断のミス(除くべきフィールドの理由が違う: サーバが決める値を除くのか、別引数で渡しているから除くのか)。両方とも対話で自力修正に至った。環境由来として、npm registryのjson-serverデフォルトバージョンがv1 betaに変わっており、CLIオプション体系がv0系と別物になっていた点も判明(検証してから採用)。
 - 新しく理解したReactの概念: (TypeScript寄りの学びが中心)`Partial<T>`は全プロパティを任意にする、`Omit<T, K>`は指定したキーを除く。同じ`Omit`でも「サーバが決めるので呼び出し側が渡せない値を除く」(`TodoInput`)と「別引数で渡しているので重複させたくない値を除く」(`update`のpatch)は目的が異なり、型を使い回さず別々に定義すべきという判断基準。
 - 次回やること: ステップ8(fetchによるCRUDと3状態の判別可能ユニオン、issue #13)に着手する。
+
+## 2026-09-18 (3)
+
+- マイルストーン / ステップ: 第2マイルストーン / 8. fetchによるCRUDと3状態の判別可能ユニオン(進行中)
+- やったこと:
+  - セッション開始時に`learning-plan.md`/`work-log.md`を読み込み、ステップ7完了時点からの再開であることを確認。`App.tsx`(localStorageベースの状態管理)、`todoRepository.ts`(インターフェースのみ)、`types.ts`の現状をレビュー。
+  - json-server(port 3001)が起動済みで`/todos`に到達できることを確認。
+  - `src/todoRepository.ts`に`JsonServerTodoRepository`クラスを新規実装(Claudeが実装。fetchは学習者未経験のためライブラリ/API呼び出しとして提示)。`list`/`create`/`update`/`remove`をfetchで実装し、共通の`parseJsonResponse<T>`ヘルパーで`response.ok`チェックと`json()`パースをまとめた。`fetch`は4xx/5xxでもPromiseがrejectしない(ネットワーク自体が繋がらない場合のみrejectする)という、ts-tetrisには無かった`fetch`特有の注意点をInsightとして説明。
+  - `npm run typecheck` / `npm run lint`が通過することを確認。
+  - `src/types.ts`に`AsyncState<T>`判別可能ユニオン型のTODO(human)を設置し、Learn by Doing requestを送信。ts-tetrisの`GameState`と同じ発想(読み込み中/エラー/成功の3バリアントを共通プロパティで判別)であることをガイダンスとして提示。学習者の実装待ちのままセッション終了(Stop hookにより本エントリを追記)。
+  - `storage.ts`(localStorage版)は削除せず維持する方針を確認。ステップ13でGitHub Pages用の`LocalStorageTodoRepository`として再利用する見込みのため。
+- 詰まった点(TS由来 / React由来 / JS由来 / 環境由来): (該当なし。ここまではClaude実装分とTODO(human)設置のみ)
+- 新しく理解したReactの概念: (学習者のTODO(human)実装待ちのため、このエントリでは未確定。次回セッションで確認する)
+- 次回やること: `src/types.ts`の`AsyncState<T>`実装内容をレビューする。その後`App.tsx`を書き換え、(1)`useState<AsyncState<readonly Todo[]>>`への移行、(2)`useEffect`での初回`list()`呼び出し、(3)追加/削除/トグルをrepository経由の非同期処理に変更、(4)loading/error/successの3状態を画面に出す、という順に進める。
+
+## 2026-09-18 (4)
+
+- マイルストーン / ステップ: 第2マイルストーン / 8. fetchによるCRUDと3状態の判別可能ユニオン(完了)
+- やったこと:
+  - 学習者が`src/types.ts`に`AsyncState<T>`を実装(`{status: "loading"} | {status: "error", message: string} | {status: "success", data: T}`)。正しい判別可能ユニオン設計だったためTODOコメントを削除しtypecheck/lint/format通過を確認。
+  - `App.tsx`を全面書き換え。`repository`インスタンスをモジュールスコープで1回だけ生成する理由(コンポーネント内で`new`すると`react-hooks/exhaustive-deps`が依存配列漏れを警告する)を学習者と対話で確認し、`useEffect`の依存配列`[]`の妥当性を導いた。
+  - `useEffect`内の初回`list()`呼び出し+競合状態対策(`cancelled`フラグ)をTODO(human)として設置し、学習者が実装。
+    - 1回目の実装は`if (!cancelled)`のチェック位置が`repository.list()`を呼ぶ**前**(常に`false`で無意味)になっていたバグ。対話で「`cancelled`が`true`になり得るのはレスポンスが返ってきた後」であることに気づかせ、`.then`/`.catch`内、`setState`直前に移動させて解決。
+    - 修正の過程で`if (cancelled) return cleanup;`という記述が登場。学習者の意図は「クリーンアップ関数が登録される前に早期リターンされることを懸念した」というものだったが、実際は`useEffect`本体の`return cleanup`は同期的に即座に実行されるため`.then()`コールバック実行時には確実に登録済みであり、その心配は不要だったこと、`.then()`内の`return`はその関数自身の戻り値(使われず捨てられる)にしかならないことを説明し、`return;`に簡略化。
+    - 加えて、Claude側が用意した骨格に`useEffect`冒頭の`setState({status: "loading"})`という冗長な呼び出しがあり、新しいESLintルール`react-hooks/set-state-in-effect`(effect内の同期的setStateがカスケード再レンダリングを招くという警告)に抵触。初期状態が既に`loading`であるため無用な呼び出しであり、Claudeの実装ミスとして削除して解決。
+  - `todoOperations.ts`の`addTodo`のシグネチャを`(todos, title)`から`(todos, newTodo: Todo)`に変更(Claudeが実装、IDをサーバ側で発行するアーキテクチャ変更に伴う直接的な帰結として説明した上で)。
+  - `handleToggle`/`handleRemove`/`handleAdd`をrepository経由の非同期処理に配線(Claudeが実装。楽観的更新はスコープ外のためサーバのレスポンスを待ってから状態を更新する方式)。loading/error/successをJSXで出し分け。
+  - `npm run server`実行時に`EADDRINUSE`エラーが発生。原因はステップ7検証時からport 3001でjson-serverプロセス(PID 70460)が起動しっぱなしだったこと(`ps aux`で確認)。既存プロセスがそのまま使えるため実害なしと説明。
+  - ブラウザで3パターンすべて確認済み: (1)一覧のサーバからの取得表示、(2)追加/トグル/削除がサーバ側にも反映、(3)`npm run server`停止時にクラッシュせず「エラーが発生しました」表示になること。
+  - 学習者が新しく理解したReactの概念を4点、正確に言語化(下記)。
+- 詰まった点(TS由来 / React由来 / JS由来 / 環境由来): React由来が中心。(a)`cancelled`チェックの位置(同期処理内でチェックしても意味がない、非同期コールバック内でチェックする必要がある)、(b)`.then()`コールバック内の`return`が`useEffect`本体のreturnとは無関係であるという誤解、(c)Claude側のミスとして`react-hooks/set-state-in-effect`(effect内の同期的setStateへの新しいlint警告)。環境由来として、前セッションのjson-serverプロセスが残っていたことによる`EADDRINUSE`(実害なし)。
+- 新しく理解したReactの概念: (1)`fetch`はHTTPレスポンスが返ってきた時点で成功扱いになり、ステータスコードが200番台かどうかは自分でチェックする必要がある(4xx/5xxでもPromiseはrejectしない)。(2)`useEffect`内で使う値が「毎回同じでよいもの」はコンポーネントの外(モジュールスコープ)に出す — コンポーネント内で`new`すると依存配列の警告(`exhaustive-deps`)が出る場合がある。(3)`useEffect`のクリーンアップ関数を返す`return`は、常に「一番内側の関数」に紐づく — `.then()`などのコールバックの中で`return`しても、それは`useEffect`本体のreturnとは無関係。
+- 次回やること: ステップ9(Zod導入 + 型定義(`.d.ts`)を読む)に着手する。ステップ6で書いた`storage.ts`の手書き型ガード(`isValidTodo`/`isValidTodos`)と、Zodスキーマを同じ画面に並べて比較し、何が自動化されたのかを言語化させる(learning-plan.md ステップ9の注意点)。

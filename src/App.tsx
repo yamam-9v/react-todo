@@ -1,43 +1,117 @@
 import { useEffect, useState } from "react";
-import type { Todo } from "./types";
+import type { AsyncState, Todo } from "./types";
 import { TodoList } from "./TodoList";
 import { AddTodoForm } from "./AddTodoForm";
 import { addTodo, removeTodo, toggleTodo } from "./todoOperations";
-import { isValidTodos, loadFromStorage, saveToStorage } from "./storage";
+import {
+  JsonServerTodoRepository,
+  type TodoRepository,
+} from "./todoRepository";
 
-const STORAGE_KEY = "react-todo:todos";
-
-const initialTodos: Todo[] = [
-  { id: "1", title: "Reactの基礎を学ぶ", done: false },
-  { id: "2", title: "useStateを理解する", done: true },
-  { id: "3", title: "propsとkeyを理解する", done: false },
-];
+const repository: TodoRepository = new JsonServerTodoRepository();
 
 function App() {
-  const [todos, setTodos] = useState<readonly Todo[]>(
-    () => loadFromStorage(STORAGE_KEY, isValidTodos) ?? initialTodos,
-  );
+  const [state, setState] = useState<AsyncState<readonly Todo[]>>({
+    status: "loading",
+  });
 
   useEffect(() => {
-    saveToStorage(STORAGE_KEY, todos);
-  }, [todos]);
+    let cancelled = false;
+
+    repository
+      .list()
+      .then((data) => {
+        if (cancelled) return;
+        setState({ status: "success", data });
+      })
+      .catch((error: unknown) => {
+        if (cancelled) return;
+        setState({
+          status: "error",
+          message:
+            error instanceof Error
+              ? error.message
+              : "不明なエラーが発生しました",
+        });
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleToggle = (id: string) => {
-    setTodos(toggleTodo(todos, id));
+    if (state.status !== "success") return;
+    const target = state.data.find((todo) => todo.id === id);
+    if (!target) return;
+    repository
+      .update(id, { done: !target.done })
+      .then(() => {
+        setState({ status: "success", data: toggleTodo(state.data, id) });
+      })
+      .catch((error: unknown) => {
+        setState({
+          status: "error",
+          message:
+            error instanceof Error
+              ? error.message
+              : "不明なエラーが発生しました",
+        });
+      });
   };
 
   const handleRemove = (id: string) => {
-    setTodos(removeTodo(todos, id));
+    if (state.status !== "success") return;
+    repository
+      .remove(id)
+      .then(() => {
+        setState({ status: "success", data: removeTodo(state.data, id) });
+      })
+      .catch((error: unknown) => {
+        setState({
+          status: "error",
+          message:
+            error instanceof Error
+              ? error.message
+              : "不明なエラーが発生しました",
+        });
+      });
   };
 
   const handleAdd = (title: string) => {
-    setTodos(addTodo(todos, title));
+    if (state.status !== "success") return;
+    repository
+      .create({ title })
+      .then((newTodo) => {
+        setState({ status: "success", data: addTodo(state.data, newTodo) });
+      })
+      .catch((error: unknown) => {
+        setState({
+          status: "error",
+          message:
+            error instanceof Error
+              ? error.message
+              : "不明なエラーが発生しました",
+        });
+      });
   };
+
+  if (state.status === "loading") {
+    return <p>読み込み中...</p>;
+  }
+
+  if (state.status === "error") {
+    return <p>エラーが発生しました: {state.message}</p>;
+  }
 
   return (
     <>
       <AddTodoForm onAdd={handleAdd} />
-      <TodoList todos={todos} onToggle={handleToggle} onRemove={handleRemove} />
+      <TodoList
+        todos={state.data}
+        onToggle={handleToggle}
+        onRemove={handleRemove}
+      />
     </>
   );
 }

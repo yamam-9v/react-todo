@@ -28,14 +28,7 @@ export function removeTodo(
 
 export function addTodo(
   todos: readonly Todo[],
-  title: string,
+  newTodo: Todo,
 ): readonly Todo[] {
-  const newTodo: Todo = {
-    id: crypto.randomUUID(),
-    title,
-    done: false,
-  };
-
-  const newTodos: Todo[] = [...todos, newTodo];
-  return newTodos;
+  return [...todos, newTodo];
 }
