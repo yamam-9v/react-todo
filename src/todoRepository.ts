@@ -1,4 +1,7 @@
-import type { Todo } from "./types";
+import { z } from "zod";
+import { TodoSchema, type Todo } from "./types";
+
+const TodoListSchema = z.array(TodoSchema);
 
 type TodoInput = Omit<Todo, "id" | "done">;
 
@@ -11,19 +14,23 @@ export interface TodoRepository {
 
 const BASE_URL = "http://localhost:3001/todos";
 
-async function parseJsonResponse<T>(response: Response): Promise<T> {
+async function parseJsonResponse<T>(
+  response: Response,
+  schema: z.ZodType<T>,
+): Promise<T> {
   if (!response.ok) {
     throw new Error(
       `APIリクエストに失敗しました: ${response.status} ${response.statusText}`,
     );
   }
-  return (await response.json()) as T;
+  const data: unknown = await response.json();
+  return schema.parse(data);
 }
 
 export class JsonServerTodoRepository implements TodoRepository {
   async list(): Promise<readonly Todo[]> {
     const response = await fetch(BASE_URL);
-    return parseJsonResponse<Todo[]>(response);
+    return parseJsonResponse(response, TodoListSchema);
   }
 
   async create(input: TodoInput): Promise<Todo> {
@@ -32,7 +39,7 @@ export class JsonServerTodoRepository implements TodoRepository {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...input, done: false }),
     });
-    return parseJsonResponse<Todo>(response);
+    return parseJsonResponse(response, TodoSchema);
   }
 
   async update(id: string, patch: Partial<Omit<Todo, "id">>): Promise<Todo> {
@@ -41,7 +48,7 @@ export class JsonServerTodoRepository implements TodoRepository {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(patch),
     });
-    return parseJsonResponse<Todo>(response);
+    return parseJsonResponse(response, TodoSchema);
   }
 
   async remove(id: string): Promise<void> {

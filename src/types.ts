@@ -1,8 +1,12 @@
-export interface Todo {
-  id: string;
-  title: string;
-  done: boolean;
-}
+import { z } from "zod";
+
+export const TodoSchema = z.object({
+  id: z.string(),
+  title: z.string().min(1, "タイトルは必須です"),
+  done: z.boolean(),
+});
+
+export type Todo = z.infer<typeof TodoSchema>;
 
 export type AsyncState<T> =
   | { status: "loading" }

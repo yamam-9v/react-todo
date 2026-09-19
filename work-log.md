@@ -35,7 +35,7 @@
 | 第1 | 6. useEffect初体験 — localStorage永続化 | 完了 |
 | 第2: 通信とバリデーション | 7. json-server導入 + TodoRepositoryインターフェース設計 | 完了 |
 | 第2 | 8. fetchによるCRUDと3状態の判別可能ユニオン | 完了 |
-| 第2 | 9. Zod導入 + 型定義(.d.ts)を読む | 未着手 |
+| 第2 | 9. Zod導入 + 型定義(.d.ts)を読む | 完了 |
 | 第2 | 10. Vitest + React Testing Library(最小限) | 未着手 |
 | 第3: 外部APIとCORS | 11. Nager.Dateから祝日を取得して表示に反映 | 未着手 |
 | 第3 | 12. CORSに当たる → Viteのproxyで回避 | 未着手 |
@@ -63,6 +63,7 @@ Vite最新テンプレートのデフォルトlinterがoxlintに変わってい�
 GitHub issueでの進捗管理を開始(マイルストーン0〜4を親issue、ステップ1〜16を子issueとしてSub-issues機能で紐付け。完了済みのマイルストーン0・1とステップ1〜6はclose、ステップ7以降はopenのまま)。
 ステップ7(json-server導入 + TodoRepositoryインターフェース設計)完了。json-server(v1 beta)を導入し`db.json`(初期3件)と`npm run server`(port 3001)を用意。`src/todoRepository.ts`に`TodoRepository`インターフェース(list/create/update/remove)と入力用の`TodoInput`型を学習者が定義。
 ステップ8(fetchによるCRUDと3状態の判別可能ユニオン、issue #13)完了。`src/todoRepository.ts`に`JsonServerTodoRepository`(`fetch`ベースの実装)をClaudeが実装。`src/types.ts`の`AsyncState<T>`判別可能ユニオン型(`status`で判別する`loading`/`error`/`success`)は学習者が実装。`App.tsx`は`useState<AsyncState<readonly Todo[]>>`+`useEffect`での初回`list()`取得(競合状態を避ける`cancelled`フラグ付き)に全面書き換え。追加/トグル/削除はrepository経由の非同期処理に変更し、`todoOperations.ts`の`addTodo`はサーバ発行のIDを使うようシグネチャを変更(`crypto.randomUUID()`生成をやめ、完成済み`Todo`を受け取る形に)。`storage.ts`は削除せず維持(ステップ13でGitHub Pages用`LocalStorageTodoRepository`として再利用見込み)。
+ステップ9(Zod導入 + 型定義を読む)完了。`npm install zod`で導入(v4.6.5)。`src/types.ts`の`Todo` interfaceを廃止し、`TodoSchema`(Zodスキーマ、学習者が実装。`title`に`.min(1)`制約あり)を唯一の情報源として`Todo`型を`z.infer<typeof TodoSchema>`で導出する設計に変更。`node_modules/zod`の`.d.ts`を実際に開き、`z.infer`→`_zod.output`(型だけのマーカープロパティ)→`ZodObject`のマップ型による各フィールドの再帰的な型抽出、という仕組みを学習者自身が`grep`で追跡し理解した(learning-plan.md 2.4節の`.d.ts`読解1回目)。`src/todoRepository.ts`の`parseJsonResponse`を型アサーション(`as T`)から`schema.parse(data)`による実行時検証に変更(Claudeが実装)。`storage.ts`の手書き型ガードは今回あえてZod化せず維持(ステップ13での作り直し時にまとめて対応する方針)。
 
 ---
 
@@ -237,3 +238,22 @@ GitHub issueでの進捗管理を開始(マイルストーン0〜4を親issue、
 - 詰まった点(TS由来 / React由来 / JS由来 / 環境由来): React由来が中心。(a)`cancelled`チェックの位置(同期処理内でチェックしても意味がない、非同期コールバック内でチェックする必要がある)、(b)`.then()`コールバック内の`return`が`useEffect`本体のreturnとは無関係であるという誤解、(c)Claude側のミスとして`react-hooks/set-state-in-effect`(effect内の同期的setStateへの新しいlint警告)。環境由来として、前セッションのjson-serverプロセスが残っていたことによる`EADDRINUSE`(実害なし)。
 - 新しく理解したReactの概念: (1)`fetch`はHTTPレスポンスが返ってきた時点で成功扱いになり、ステータスコードが200番台かどうかは自分でチェックする必要がある(4xx/5xxでもPromiseはrejectしない)。(2)`useEffect`内で使う値が「毎回同じでよいもの」はコンポーネントの外(モジュールスコープ)に出す — コンポーネント内で`new`すると依存配列の警告(`exhaustive-deps`)が出る場合がある。(3)`useEffect`のクリーンアップ関数を返す`return`は、常に「一番内側の関数」に紐づく — `.then()`などのコールバックの中で`return`しても、それは`useEffect`本体のreturnとは無関係。
 - 次回やること: ステップ9(Zod導入 + 型定義(`.d.ts`)を読む)に着手する。ステップ6で書いた`storage.ts`の手書き型ガード(`isValidTodo`/`isValidTodos`)と、Zodスキーマを同じ画面に並べて比較し、何が自動化されたのかを言語化させる(learning-plan.md ステップ9の注意点)。
+
+## 2026-09-19
+
+- マイルストーン / ステップ: 第2マイルストーン / 9. Zod導入 + 型定義(.d.ts)を読む(完了)
+- やったこと:
+  - セッション開始時に`learning-plan.md`/`work-log.md`を読み込み、ステップ8完了時点からの再開であることを確認。`types.ts`/`storage.ts`/`todoRepository.ts`の現状をレビュー。
+  - `npm install zod`でZod(v4.6.5)を導入。v3系とv4系で型定義ファイルの構造が異なる点をInsightとして説明(後で`.d.ts`を読む際は必ずv4系を見るよう注意喚起)。
+  - 設計方針を学習者に相談: 既存の`Todo` interfaceを手書きのまま残すか、`TodoSchema`(Zod)を唯一の情報源にして`Todo`型を`z.infer`で導出する方針に切り替えるか。学習者は後者(推奨案)を選択。
+  - `src/types.ts`を編集し、`Todo` interfaceを`TodoSchema`(TODO(human))+`export type Todo = z.infer<typeof TodoSchema>`に置き換え。フィールド(id/title/done)と、titleへの制約(空文字列を許すか等)を学習者自身の判断に委ねるガイダンスを添えてLearn by Doing requestを送信。学習者の実装待ちの状態で一度Stop hookが発火し中断。
+  - 学習者が`TodoSchema`を実装(`id`/`title`/`done`に加え、`title`に`.min(1, "タイトルは必須です")`の制約を独自に追加)。typecheck/lint/format全て通過を確認しTODOコメントを削除。`db.json`のフォーマット崩れ(過去セッションのCRUD操作由来、今回の変更とは無関係)も合わせて`format:fix`で修正。
+  - `storage.ts`の手書き型ガード`isValidTodo`とZodの`TodoSchema`を比較する対話を実施。学習者は「型のチェックはisValidTodoが手作業でやっていたことをTodoSchemaが自動でやってくれる」と正しく言語化。
+  - `TodoSchema.parse(不正な値)`を実際に試させ、`parse`は失敗時に例外をthrowし、`safeParse`はthrowせず`{success, data|error}`を返すという違いを学習者が実地で確認し正しく説明。
+  - `.d.ts`読解(learning-plan.md 2.4節の必須課題、今回で1回目)を実施。`node_modules/zod/index.d.ts` → `v4/classic/external` → `Infer<T>`/`output<T>`(`T["_zod"]["output"]`という型レベルのインデックスアクセス) → `ZodObject`の`$InferObjectInternals`/`$InferObjectOutput`(`optional`の有無で2つのマップ型に振り分けてintersectする構造)まで、学習者自身に`grep`で辿らせながら追跡。「`_zod`は実行時に値を持たない型だけのマーカープロパティ(phantom property)」という中心的な仕組みと、「各フィールド自身の`_zod.output`をキーごとに再帰的に取り出すマップ型」という`ZodObject`の実装原理を、学習者が最終的に自分の言葉で説明できることを確認(初回「z.T()を実行し」という表現には型レベルの操作であり実行時の呼び出しではない旨を訂正した)。
+  - `src/todoRepository.ts`の`parseJsonResponse`を`(await response.json()) as T`という型アサーションから`schema.parse(data)`(Zodスキーマによる実行時検証)に変更(Claudeが実装。`list`は`z.array(TodoSchema)`、`create`/`update`は`TodoSchema`を使用)。4.6節「外部から来たデータは必ず検証する」がここで実現された。typecheck/lint/format全て通過。
+  - ブラウザで一覧表示・追加・トグル・削除の動作確認を学習者が実施し、問題なしを確認。
+  - `storage.ts`の手書き型ガードをあえて`TodoSchema`に統一しなかった設計判断について学習者に理由を問い、「今必要な変更ではないから残しておいてよい」という回答を得た。ステップ13で`storage.ts`が`LocalStorageTodoRepository`として作り直される予定であり、そのタイミングでまとめてZod化すれば二度手間を避けられるという補足をした。
+- 詰まった点(TS由来 / React由来 / JS由来 / 環境由来): TS由来(`.d.ts`読解特有の難しさ)。ZodObjectの型定義(`$InferObjectOutput`)が「optionalフィールドの有無で2つのマップ型に分けてintersectする」という複雑な構造をしており、`TodoSchema`にはoptionalフィールドが無いため無視してよい分岐が多かった。学習者は複雑な型定義から自分のケースに関係する部分だけを読み解くという実務的な読み方を体験した。
+- 新しく理解したReactの概念: (React由来ではなくTS/Zod寄りの学び)(1)Zodは型検証を行うライブラリであり、自前のバリデーション(型ガード)を書かなくて済むようになる。(2)`z.infer`は、スキーマの各キーについて再帰的にそのフィールド自身の`_zod.output`(型だけのマーカープロパティ)を取り出すことで、コンパイル時に型を導出する仕組み。(3)`parse`は失敗時に例外をthrowするが`safeParse`はthrowせず`{success, data}`または`{success, error}`を返す — 用途に応じて使い分ける。
+- 次回やること: ステップ10(Vitest + React Testing Library、最小限)に着手する。`todoOperations.ts`の純粋関数のテストと、コンポーネント1つの描画テストを学習者に書かせる。`InMemoryTodoRepository`への差し替えでfetchなしにテストできるという4.5節の設計の御利益をここで回収する。
