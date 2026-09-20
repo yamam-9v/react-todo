@@ -36,7 +36,7 @@
 | 第2: 通信とバリデーション | 7. json-server導入 + TodoRepositoryインターフェース設計 | 完了 |
 | 第2 | 8. fetchによるCRUDと3状態の判別可能ユニオン | 完了 |
 | 第2 | 9. Zod導入 + 型定義(.d.ts)を読む | 完了 |
-| 第2 | 10. Vitest + React Testing Library(最小限) | 未着手 |
+| 第2 | 10. Vitest + React Testing Library(最小限、基本部分) | 完了(10-a=Appの依存性注入+InMemoryTodoRepositoryは保留) |
 | 第3: 外部APIとCORS | 11. Nager.Dateから祝日を取得して表示に反映 | 未着手 |
 | 第3 | 12. CORSに当たる → Viteのproxyで回避 | 未着手 |
 | 第4: 公開と自宅サーバ | 13. GitHub Pagesへデプロイ(デモ用ビルド) | 未着手 |
@@ -64,6 +64,7 @@ GitHub issueでの進捗管理を開始(マイルストーン0〜4を親issue、
 ステップ7(json-server導入 + TodoRepositoryインターフェース設計)完了。json-server(v1 beta)を導入し`db.json`(初期3件)と`npm run server`(port 3001)を用意。`src/todoRepository.ts`に`TodoRepository`インターフェース(list/create/update/remove)と入力用の`TodoInput`型を学習者が定義。
 ステップ8(fetchによるCRUDと3状態の判別可能ユニオン、issue #13)完了。`src/todoRepository.ts`に`JsonServerTodoRepository`(`fetch`ベースの実装)をClaudeが実装。`src/types.ts`の`AsyncState<T>`判別可能ユニオン型(`status`で判別する`loading`/`error`/`success`)は学習者が実装。`App.tsx`は`useState<AsyncState<readonly Todo[]>>`+`useEffect`での初回`list()`取得(競合状態を避ける`cancelled`フラグ付き)に全面書き換え。追加/トグル/削除はrepository経由の非同期処理に変更し、`todoOperations.ts`の`addTodo`はサーバ発行のIDを使うようシグネチャを変更(`crypto.randomUUID()`生成をやめ、完成済み`Todo`を受け取る形に)。`storage.ts`は削除せず維持(ステップ13でGitHub Pages用`LocalStorageTodoRepository`として再利用見込み)。
 ステップ9(Zod導入 + 型定義を読む)完了。`npm install zod`で導入(v4.6.5)。`src/types.ts`の`Todo` interfaceを廃止し、`TodoSchema`(Zodスキーマ、学習者が実装。`title`に`.min(1)`制約あり)を唯一の情報源として`Todo`型を`z.infer<typeof TodoSchema>`で導出する設計に変更。`node_modules/zod`の`.d.ts`を実際に開き、`z.infer`→`_zod.output`(型だけのマーカープロパティ)→`ZodObject`のマップ型による各フィールドの再帰的な型抽出、という仕組みを学習者自身が`grep`で追跡し理解した(learning-plan.md 2.4節の`.d.ts`読解1回目)。`src/todoRepository.ts`の`parseJsonResponse`を型アサーション(`as T`)から`schema.parse(data)`による実行時検証に変更(Claudeが実装)。`storage.ts`の手書き型ガードは今回あえてZod化せず維持(ステップ13での作り直し時にまとめて対応する方針)。
+ステップ10(Vitest + React Testing Library、最小限)着手。`vitest` / `jsdom` / `@testing-library/react` / `@testing-library/jest-dom` / `@testing-library/user-event` / `@vitest/eslint-plugin`を導入(すべてClaudeが実装、learning-plan.md 2.2節の「テストのボイラープレート」に該当)。`vite.config.ts`に`/// <reference types="vitest/config" />`+`test: { environment: "jsdom", setupFiles: ["./src/setupTests.ts"] }`を追加、`src/setupTests.ts`で`@testing-library/jest-dom/vitest`を読み込みDOM用マッチャーを有効化、`package.json`に`test`/`test:watch`スクリプトを追加、`eslint.config.js`に`*.test.{ts,tsx}`向けの`@vitest/eslint-plugin`設定を追加。ts-tetrisの既存スタイル(`describe`/`it`/`expect`を明示import、`globals: true`は不使用)を踏襲。`npm run typecheck` / `npm run lint`は通過確認済み。`src/todoOperations.test.ts`にスケルトン(import文のみ)を用意し、`toggleTodo`/`removeTodo`/`addTodo`の純粋関数テストをTODO(human)として学習者に依頼、実装待ちのままセッション終了。
 
 ---
 
@@ -257,3 +258,46 @@ GitHub issueでの進捗管理を開始(マイルストーン0〜4を親issue、
 - 詰まった点(TS由来 / React由来 / JS由来 / 環境由来): TS由来(`.d.ts`読解特有の難しさ)。ZodObjectの型定義(`$InferObjectOutput`)が「optionalフィールドの有無で2つのマップ型に分けてintersectする」という複雑な構造をしており、`TodoSchema`にはoptionalフィールドが無いため無視してよい分岐が多かった。学習者は複雑な型定義から自分のケースに関係する部分だけを読み解くという実務的な読み方を体験した。
 - 新しく理解したReactの概念: (React由来ではなくTS/Zod寄りの学び)(1)Zodは型検証を行うライブラリであり、自前のバリデーション(型ガード)を書かなくて済むようになる。(2)`z.infer`は、スキーマの各キーについて再帰的にそのフィールド自身の`_zod.output`(型だけのマーカープロパティ)を取り出すことで、コンパイル時に型を導出する仕組み。(3)`parse`は失敗時に例外をthrowするが`safeParse`はthrowせず`{success, data}`または`{success, error}`を返す — 用途に応じて使い分ける。
 - 次回やること: ステップ10(Vitest + React Testing Library、最小限)に着手する。`todoOperations.ts`の純粋関数のテストと、コンポーネント1つの描画テストを学習者に書かせる。`InMemoryTodoRepository`への差し替えでfetchなしにテストできるという4.5節の設計の御利益をここで回収する。
+
+## 2026-09-20
+
+- マイルストーン / ステップ: 第2マイルストーン / 10. Vitest + React Testing Library(最小限)(進行中)
+- やったこと:
+  - セッション開始時に`learning-plan.md`/`work-log.md`を読み込み、ステップ9完了時点からの再開であることを確認。`todoOperations.ts`/`types.ts`/`App.tsx`/`todoRepository.ts`の現状をレビュー。
+  - ts-tetrisの`package.json`/テストファイル(`collision.test.ts`)を参照し、テストの書き方(`describe`/`it`/`expect`を明示import、`globals: true`は使わない)を確認した上で、react-todo側もそのスタイルを踏襲する方針とした。
+  - `vitest` / `jsdom` / `@testing-library/react` / `@testing-library/jest-dom` / `@testing-library/user-event` / `@vitest/eslint-plugin`をdevDependencyとして導入(Claudeが実装、learning-plan.md 2.2節のボイラープレートに該当)。
+  - `vite.config.ts`に`/// <reference types="vitest/config" />`と`test: { environment: "jsdom", setupFiles: ["./src/setupTests.ts"] }`を追加。`src/setupTests.ts`を新規作成し`@testing-library/jest-dom/vitest`をimportしてDOM用マッチャー(`toBeInTheDocument`等)を有効化。
+  - `package.json`に`test`(`vitest run`)/`test:watch`(`vitest`)スクリプトを追加。`eslint.config.js`に`src/**/*.test.{ts,tsx}`向けの`@vitest/eslint-plugin`設定(`vitest.configs.recommended.rules`+`vitest.environments.env.globals`)を追加。
+  - `npm run typecheck` / `npm run lint`が通過することを確認。
+  - `src/todoOperations.test.ts`にimport文のみのスケルトンを作成し、`toggleTodo`/`removeTodo`/`addTodo`の純粋関数テストをTODO(human)として設置。「存在しないidを渡した場合に元の配列をそのまま返す」という境界値ケースと、不変性(引数の配列を直接mutateしていないか)の検証を含めるかという設計判断をガイダンスとして提示し、Learn by Doing requestを送信。学習者の実装待ちのままセッション終了(Stop hookにより本エントリを追記)。
+- 詰まった点(TS由来 / React由来 / JS由来 / 環境由来): (該当なし。今回はセットアップとTODO(human)設置のみ)
+- 新しく理解したReactの概念: (学習者のTODO(human)実装待ちのため、このエントリでは未確定。次回セッションで確認する)
+- 次回やること: `src/todoOperations.test.ts`の実装内容をレビューする。`npm run test`で通過を確認後、コンポーネント1つの描画テストに進む。その際、`App`を対象にするなら`JsonServerTodoRepository`を`InMemoryTodoRepository`に差し替え可能にする設計変更(依存性注入)が必要になる可能性があるため、対象コンポーネント(`App`か、より単純な`TodoItem`/`AddTodoForm`か)を学習者と相談してから進める。
+
+## 2026-09-20 (2)
+
+- マイルストーン / ステップ: 第2マイルストーン / 10. Vitest + React Testing Library(最小限)(進行中)
+- やったこと:
+  - `src/todoOperations.test.ts`のTODO(human)実装をレビュー。学習者が`toggleTodo`/`removeTodo`/`addTodo`それぞれに正常系+境界値(存在しないid)のテストを実装。テストデータ生成ヘルパー`makeTodos`を自作(ts-tetrisの`makeBoard`と同じ発想)。
+  - レビューで4点指摘: (1) `zod`/`zod/locales`からの未使用import(typecheckエラー)、(2) `title: "テストデータ${id}"`がテンプレートリテラルでなく通常の文字列リテラルになっており`${id}`が補間されていないバグ、(3) ガイダンスで触れた不変性(引数を直接mutateしていないか)の検証が未実装、(4) インデントがPrettier設定(2スペース)と不一致。学習者が(1)(2)(4)を自力で修正し`npm run typecheck`/`lint`/`format`/`test`が全て通過することを確認。(3)は「余裕がある時に追加する」として今回は意図的に保留(work-log上の宿題として記録)。
+  - (2)のバグについて、`toEqual`による比較では検出できない理由(期待値・実際値の両方が同じ`makeTodos`ヘルパーで生成されるため、`title`の値が誤っていても両辺で一致してしまう)をInsightとして説明。「期待値を自動生成すると実装のバグを共有してしまう」というテストの死角について言語化。
+  - TODOコメントを削除し、純粋関数テスト(5件)完了。
+  - 次の描画テストの対象について学習者と相談。当初の想定(`App`を対象にしてInMemoryTodoRepositoryへの差し替えでDIの御利益を回収する)は規模が大きいため、学習者の希望により「ステップ10ではまず`TodoItem`のような単純な表示コンポーネントの描画テストで区切り、`App`の依存性注入+`InMemoryTodoRepository`はステップ10-a(サブステップ)として別途後で着手する」という方針に決定。learning-plan.md本体は変更せず、work-log上でこの区切りを管理する。
+  - `src/TodoItem.test.tsx`にスケルトン(`render`/`screen`/`userEvent`/`vi`のimportのみ)を作成し、TODO(human)としてLearn by Doing requestを送信。学習者の実装待ちのままセッション終了(想定)。
+- 詰まった点(TS由来 / React由来 / JS由来 / 環境由来): JS由来。テンプレートリテラル(バッククォート)と通常の文字列リテラル(ダブルクォート)の中で`${}`構文の意味が異なる(後者ではただの文字列として扱われる)という基礎的な誤りだったが、テストが`toEqual`ベースだったため通常の実行では気づきにくかった。
+- 新しく理解したReactの概念: (React由来ではなくテスト設計の学び)期待値を実装と同じロジック(ヘルパー関数)で生成すると、そのロジック自体のバグをテストが検出できなくなる場合がある。
+- 次回やること: `src/TodoItem.test.tsx`の実装内容をレビューする。通過確認後、ステップ10-a(`App`のリポジトリ依存性注入化 + `InMemoryTodoRepository`実装 + `App`の描画テスト)に進むかどうかを学習者と相談する。
+
+## 2026-09-20 (3)
+
+- マイルストーン / ステップ: 第2マイルストーン / 10. Vitest + React Testing Library(最小限、基本部分)(完了)
+- やったこと:
+  - `src/TodoItem.test.tsx`のTODO(human)実装をレビュー。学習者が`describe`+`beforeEach`(`render`)/`afterEach`(`cleanup`)の構成で、(1)タイトル表示、(2)チェックボックス表示、(3)`checked`状態の反映(done: false/true両方)、(4)チェックボックスクリック時の`onToggle`呼び出し、(5)削除ボタン表示、(6)削除ボタンクリック時の`onRemove`呼び出し、の6テストを実装。`vi.fn<(id: string) => void>()`によるモック関数、`userEvent.setup()`+`await user.click(...)`によるクリックシミュレーションを使用。
+  - レビューで2点指摘: (1) `render(TodoItem({todo, onToggle, onRemove}))`という、コンポーネントをJSXではなくただの関数として直接呼び出す書き方になっていた(今回はフック不使用のTodoItemなので偶然動くが、Rules of Hooksに反する書き方であり将来フックを使うコンポーネントで壊れる)。(2) 3番目のテスト(checked状態確認)で`todo.done = !todo.done`と共有オブジェクトを直接mutateしており、ステップ4で踏んだのと同種の不変性違反(後続テストの`todo.done`の値が汚染される)。学習者が両方を自力で修正(JSX形式に変更、`{ ...todo, done: true }`で新しいオブジェクトを作る形に変更)し、`npm run typecheck`/`lint`/`format`/`test`(全11件)がすべて通過することを確認。
+  - `afterEach(cleanup)`が必要な理由(このプロジェクトは`globals: true`を使わず`describe`/`it`/`afterEach`を明示importするスタイルのため、RTLの自動クリーンアップ機構が働かない)をInsightとして補足。
+  - TODOコメントを削除。
+  - learning-plan.md 8節の運用に従い、学習者に「新しく理解した概念」を言語化してもらい、(a)コンポーネントを関数として直接呼ぶとフックが機能しないためJSX形式で呼び出す必要がある、(b)`render`後は`cleanup()`で描画を消して他のテストに影響しないようにする、(c)`screen.getByText`/`getByRole`によるクエリと`toBeInTheDocument`/`toBeChecked`によるマッチャー、(d)`vi.fn()`のモック関数と`toHaveBeenCalledWith`による呼び出し引数の検証、の4点を正確に説明できることを確認。
+  - ステップ10-a(`App`を`JsonServerTodoRepository`から`InMemoryTodoRepository`に差し替え可能にする依存性注入への設計変更、`InMemoryTodoRepository`の実装、`App`の描画テスト。learning-plan.mdステップ10注意点の「4.5節の設計の御利益をここで回収する」部分に相当)は今回のスコープから外し、別セッションでのサブステップとして保留。あわせて、ステップ10前半で保留した`todoOperations.test.ts`の不変性テスト(TODO3)も未着手のまま残っている。
+- 詰まった点(TS由来 / React由来 / JS由来 / 環境由来): React由来。(a) コンポーネントをJSXでなく関数として直接呼び出す誤り(Rules of Hooksの理解不足)、(b) 描画テストの中でも不変性原則が効く(共有フィクスチャの直接mutateがテスト間の汚染を招く)という気づきの不足。どちらもステップ4で学んだ内容の応用として対話で自力修正に至った。
+- 新しく理解したReactの概念: (1) コンポーネントは必ずJSXとして呼び出す — 関数として直接呼び出すとReactのレンダリングサイクル外での実行になり、フックが機能しない。(2) 不変性の原則(ステップ4)はテストの共有フィクスチャにも適用される。(3) RTLは実装の詳細(クラス名等)ではなくアクセシビリティツリー(role/name)や表示テキストで要素を探す設計思想。(4) `vi.fn()`+`toHaveBeenCalledWith`でコールバックpropsの呼び出され方を検証できる。
+- 次回やること: ステップ10-a(`App`のリポジトリ依存性注入化 + `InMemoryTodoRepository`実装 + `App`の描画テスト)に着手するか、先にステップ11(Nager.Dateから祝日取得)に進み10-aは任意課題として後回しにするか、学習者と相談してから決める。あわせて`todoOperations.test.ts`の不変性テスト(保留分)の着手タイミングも確認する。
