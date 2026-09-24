@@ -36,7 +36,8 @@
 | 第2: 通信とバリデーション | 7. json-server導入 + TodoRepositoryインターフェース設計 | 完了 |
 | 第2 | 8. fetchによるCRUDと3状態の判別可能ユニオン | 完了 |
 | 第2 | 9. Zod導入 + 型定義(.d.ts)を読む | 完了 |
-| 第2 | 10. Vitest + React Testing Library(最小限、基本部分) | 完了(10-a=Appの依存性注入+InMemoryTodoRepositoryは保留) |
+| 第2 | 10. Vitest + React Testing Library(最小限、基本部分) | 完了 |
+| 第2 | 10-a. Appの依存性注入 + InMemoryTodoRepository + Appの描画テスト | 完了 |
 | 第3: 外部APIとCORS | 11. Nager.Dateから祝日を取得して表示に反映 | 未着手 |
 | 第3 | 12. CORSに当たる → Viteのproxyで回避 | 未着手 |
 | 第4: 公開と自宅サーバ | 13. GitHub Pagesへデプロイ(デモ用ビルド) | 未着手 |
@@ -65,6 +66,8 @@ GitHub issueでの進捗管理を開始(マイルストーン0〜4を親issue、
 ステップ8(fetchによるCRUDと3状態の判別可能ユニオン、issue #13)完了。`src/todoRepository.ts`に`JsonServerTodoRepository`(`fetch`ベースの実装)をClaudeが実装。`src/types.ts`の`AsyncState<T>`判別可能ユニオン型(`status`で判別する`loading`/`error`/`success`)は学習者が実装。`App.tsx`は`useState<AsyncState<readonly Todo[]>>`+`useEffect`での初回`list()`取得(競合状態を避ける`cancelled`フラグ付き)に全面書き換え。追加/トグル/削除はrepository経由の非同期処理に変更し、`todoOperations.ts`の`addTodo`はサーバ発行のIDを使うようシグネチャを変更(`crypto.randomUUID()`生成をやめ、完成済み`Todo`を受け取る形に)。`storage.ts`は削除せず維持(ステップ13でGitHub Pages用`LocalStorageTodoRepository`として再利用見込み)。
 ステップ9(Zod導入 + 型定義を読む)完了。`npm install zod`で導入(v4.6.5)。`src/types.ts`の`Todo` interfaceを廃止し、`TodoSchema`(Zodスキーマ、学習者が実装。`title`に`.min(1)`制約あり)を唯一の情報源として`Todo`型を`z.infer<typeof TodoSchema>`で導出する設計に変更。`node_modules/zod`の`.d.ts`を実際に開き、`z.infer`→`_zod.output`(型だけのマーカープロパティ)→`ZodObject`のマップ型による各フィールドの再帰的な型抽出、という仕組みを学習者自身が`grep`で追跡し理解した(learning-plan.md 2.4節の`.d.ts`読解1回目)。`src/todoRepository.ts`の`parseJsonResponse`を型アサーション(`as T`)から`schema.parse(data)`による実行時検証に変更(Claudeが実装)。`storage.ts`の手書き型ガードは今回あえてZod化せず維持(ステップ13での作り直し時にまとめて対応する方針)。
 ステップ10(Vitest + React Testing Library、最小限)着手。`vitest` / `jsdom` / `@testing-library/react` / `@testing-library/jest-dom` / `@testing-library/user-event` / `@vitest/eslint-plugin`を導入(すべてClaudeが実装、learning-plan.md 2.2節の「テストのボイラープレート」に該当)。`vite.config.ts`に`/// <reference types="vitest/config" />`+`test: { environment: "jsdom", setupFiles: ["./src/setupTests.ts"] }`を追加、`src/setupTests.ts`で`@testing-library/jest-dom/vitest`を読み込みDOM用マッチャーを有効化、`package.json`に`test`/`test:watch`スクリプトを追加、`eslint.config.js`に`*.test.{ts,tsx}`向けの`@vitest/eslint-plugin`設定を追加。ts-tetrisの既存スタイル(`describe`/`it`/`expect`を明示import、`globals: true`は不使用)を踏襲。`npm run typecheck` / `npm run lint`は通過確認済み。`src/todoOperations.test.ts`にスケルトン(import文のみ)を用意し、`toggleTodo`/`removeTodo`/`addTodo`の純粋関数テストをTODO(human)として学習者に依頼、実装待ちのままセッション終了。
+ステップ10(基本部分)完了。`todoOperations.test.ts`の純粋関数テスト5件、`TodoItem.test.tsx`の描画テスト6件をそれぞれ学習者が実装(レビューで数点の不変性違反・JSX呼び出し忘れ等のバグを対話で自力修正済み、詳細は当該日付のエントリ参照)。ステップ10-a(`App`の依存性注入+`InMemoryTodoRepository`実装+`App`の描画テスト)と、`todoOperations.test.ts`の不変性テスト(保留分)は未着手のまま残した。
+ステップ10-a(`App`の依存性注入 + `InMemoryTodoRepository` + `App`の描画テスト)完了。`App.tsx`の`repository`をモジュールスコープの定数からpropsに変更(`AppProps`型は学習者が実装。当初`repository?: TodoRepository`+デフォルト値`new JsonServerTodoRepository()`を選択)。この状態で`useEffect`の依存配列に`repository`を含めるとどうなるかを議論する中で、学習者自身が「デフォルト値(`new`)は再レンダリングのたびに再評価され新しい参照になるため、依存配列に含めると無限ループの罠になりうる」ことに気づき、`main.tsx`側でモジュールスコープの定数として`repository`を1つ生成し`<App repository={repository} />`と明示的に渡す設計に変更(Claudeが実装)。あわせて`AppProps.repository`を必須化し`App`側のデフォルト値を削除(理由: 型で「省略不可」を保証しないと将来同じ罠が復活するため)。`useEffect`の依存配列は学習者の判断で`[repository]`に変更。`InMemoryTodoRepository`(list/create/update/remove、いずれも内部配列を不変更新)は`JsonServerTodoRepository`と同じ「具象実装」として今回もClaudeが実装(ステップ7・8の前例を踏襲)。`src/App.test.tsx`に`App`の描画テスト(初期表示/追加/トグル)をTODO(human)として学習者が実装。レビューで3点指摘: (1)`repository`をモジュールスコープで1回だけ生成しテスト間で共有していた問題(テストの独立性違反)、(2)トグルのテストで`cleanup`+再`render`により実際には「同じ画面上での再レンダリング」を検証できていなかった問題、(3)`previousElementSibling`というDOM構造依存の脆い取得方法。いずれも対話で自力修正(`beforeEach`内で`repository`を作り直す/`cleanup`+再`render`を削除しクリック直後を直接検証/`closest("li")`+`within(...).getByRole("checkbox")`に変更)。`npm run typecheck`/`lint`/`format`/`test`(3ファイル14件)すべて通過。学習者が新しく理解した概念を正確に言語化(下記)。
 
 ---
 
@@ -301,3 +304,24 @@ GitHub issueでの進捗管理を開始(マイルストーン0〜4を親issue、
 - 詰まった点(TS由来 / React由来 / JS由来 / 環境由来): React由来。(a) コンポーネントをJSXでなく関数として直接呼び出す誤り(Rules of Hooksの理解不足)、(b) 描画テストの中でも不変性原則が効く(共有フィクスチャの直接mutateがテスト間の汚染を招く)という気づきの不足。どちらもステップ4で学んだ内容の応用として対話で自力修正に至った。
 - 新しく理解したReactの概念: (1) コンポーネントは必ずJSXとして呼び出す — 関数として直接呼び出すとReactのレンダリングサイクル外での実行になり、フックが機能しない。(2) 不変性の原則(ステップ4)はテストの共有フィクスチャにも適用される。(3) RTLは実装の詳細(クラス名等)ではなくアクセシビリティツリー(role/name)や表示テキストで要素を探す設計思想。(4) `vi.fn()`+`toHaveBeenCalledWith`でコールバックpropsの呼び出され方を検証できる。
 - 次回やること: ステップ10-a(`App`のリポジトリ依存性注入化 + `InMemoryTodoRepository`実装 + `App`の描画テスト)に着手するか、先にステップ11(Nager.Dateから祝日取得)に進み10-aは任意課題として後回しにするか、学習者と相談してから決める。あわせて`todoOperations.test.ts`の不変性テスト(保留分)の着手タイミングも確認する。
+
+## 2026-09-24
+
+- マイルストーン / ステップ: 第2マイルストーン / 10-a. Appの依存性注入 + InMemoryTodoRepository + Appの描画テスト(完了)
+- やったこと:
+  - セッション開始時に`learning-plan.md`/`work-log.md`を読み込み、ステップ10(基本部分)完了時点からの再開であることを確認。
+  - 学習者に今回の進め方を相談し、「ステップ10-aから着手する」方針を選択(`todoOperations.test.ts`の不変性テスト保留分は10-aの後に回す)。
+  - `App.tsx`/`todoRepository.ts`/`main.tsx`の現状をレビュー。`repository`が`App.tsx`のモジュールスコープで`JsonServerTodoRepository`に直接束縛されており差し替え不可能な状態であることを確認。
+  - 依存性注入の考え方(Reactではpropsとしてそのまま表現できる、ts-tetrisには無かった概念であること)をInsightとして説明。
+  - `App.tsx`の関数シグネチャを`function App({ repository }: AppProps)`まで書き換え、`AppProps`型定義をTODO(human)として設置。「repositoryを必須にして`main.tsx`で明示的に渡す」か「省略可能にしてデフォルト値を用意する」かという設計判断をガイダンスとして提示し、Learn by Doing requestを送信(この時点でStop hookが1度発火し本エントリの前身を追記)。
+  - 学習者が`AppProps`を`repository?: TodoRepository`+デフォルト値`new JsonServerTodoRepository()`という設計で実装。typecheckは通過したが、lintで`react-hooks/exhaustive-deps`警告(`useEffect`が`repository`に依存しているのに依存配列`[]`に含まれていない)が発生。
+  - 警告の意味をInsightとして説明した上で、「依存配列に`repository`を追加したら何が起きるか」を学習者に問いかけ。学習者は自力で「デフォルト値の`new`は再レンダリングのたびに再評価され新しい参照になるため、無限ループの罠になりうる」ことに気づき、「`App`の外(`main.tsx`)でインスタンス化する」という解決策を提案(ステップ8で学んだ「モジュールスコープに出す」発想の応用)。
+  - `main.tsx`にモジュールスコープの`const repository = new JsonServerTodoRepository()`を追加し`<App repository={repository} />`と明示的に渡す形に変更(Claudeが実装)。あわせて、学習者からの追加の質問(「デフォルト値はもう消したほうが良いか」)に対し、`AppProps.repository`を必須化しないと「型はoptionalなのに実質必須」という矛盾が残り将来同じ罠が復活する、と理由を説明した上で`repository: TodoRepository`(必須)+デフォルト値削除に変更(Claudeが実装)。`useEffect`の依存配列を`[repository]`に変更する判断は学習者が回答し反映。typecheck/lint/format すべて通過。ブラウザでの動作確認も学習者が実施。
+  - `InMemoryTodoRepository`をステップ7・8の前例(具象実装はClaude)に倣い`todoRepository.ts`に追記(Claudeが実装)。当初`async`メソッド内に`await`が無く`@typescript-eslint/require-await`エラーが発生したため、`async`を外し`Promise.resolve`/`Promise.reject`を明示的に返す形に修正(`throw`のままだと`async`を外した際に同期的に例外を投げてしまう点も補足)。
+  - `src/App.test.tsx`にスケルトン(初期データ`initialTodos`、TODOコメント)を用意。`App`が`useEffect`経由の非同期コンポーネントであるため`screen.findByText`等の非同期クエリが必要になる点をInsightとして説明し、Learn by Doing requestを送信。
+  - 学習者が初期表示/追加/トグルの3テストを実装。レビューで3点指摘: (1) `repository`をモジュールスコープで1回だけ生成しテスト間で共有していた(テストの独立性違反)、(2) トグルのテストが`cleanup()`+再`render()`後の状態しか検証しておらず「同じ画面上での再レンダリング」を確認できていなかった、(3) `previousElementSibling`によるチェックボックス取得がDOM構造への依存が強い(`within`の使用を提案)。学習者が3点とも自力で修正(`beforeEach`内で`repository`を作り直す/`cleanup`+再`render`を削除しクリック直後を直接検証/`closest("li")`+`within(liElement).getByRole("checkbox")`に変更)。
+  - `npm run typecheck`/`lint`/`format`/`test`(3ファイル14件)すべて通過を確認。
+  - 学習者が新しく理解した概念を正確に言語化(下記)。
+- 詰まった点(TS由来 / React由来 / JS由来 / 環境由来): React由来が中心。(a) propsのデフォルト値(`new`式)が再レンダリングのたびに再評価され新しい参照になるため、`useEffect`の依存配列に含めると無限ループの罠になりうるという、ステップ8の教訓(モジュールスコープに出す)の一段深い応用パターン。(b) 描画テストにおけるテストの独立性違反(共有`repository`インスタンス)と、テストの検証範囲の誤り(`cleanup`+再`render`では「その場での再レンダリング」を確認できていない)。いずれも対話で学習者自身が気づき、自力修正に至った。環境由来として、`InMemoryTodoRepository`の`async`メソッドに`await`が無いことによる`@typescript-eslint/require-await`エラーが発生(Claude側の実装ミス、`Promise.resolve`/`Promise.reject`への書き換えで解決)。
+- 新しく理解したReactの概念: (1) propsのデフォルト値に`new ...()`のような式を書くと、コンポーネントが再レンダリングされるたびに再評価され新しい参照が生成される。これを`useEffect`の依存配列に含めると無限ループの原因になりうるため、安定した参照が必要な値は呼び出し側(コンポーネントの外)で1度だけ生成して渡すべき。(2) `screen.findByText`等の`findBy*`クエリは非同期(Promiseを返す)で、`useEffect`を伴う非同期コンポーネントのテストでは`getBy*`ではなく`findBy*`を使う必要がある。(3) `closest()`で親要素を辿り、`within(要素)`でその要素の中だけに絞ってクエリできる — DOM構造(`previousElementSibling`等)に依存した取得より堅牢。
+- 次回やること: `todoOperations.test.ts`の不変性テスト(保留分。引数の配列を直接mutateしていないかの検証)に着手するか、ステップ11(Nager.Dateから祝日取得)に進むか、学習者と相談してから決める。

@@ -60,3 +60,36 @@ export class JsonServerTodoRepository implements TodoRepository {
     }
   }
 }
+
+export class InMemoryTodoRepository implements TodoRepository {
+  private todos: readonly Todo[];
+
+  constructor(initialTodos: readonly Todo[] = []) {
+    this.todos = initialTodos;
+  }
+
+  list(): Promise<readonly Todo[]> {
+    return Promise.resolve(this.todos);
+  }
+
+  create(input: TodoInput): Promise<Todo> {
+    const newTodo: Todo = { id: crypto.randomUUID(), ...input, done: false };
+    this.todos = [...this.todos, newTodo];
+    return Promise.resolve(newTodo);
+  }
+
+  update(id: string, patch: Partial<Omit<Todo, "id">>): Promise<Todo> {
+    const target = this.todos.find((todo) => todo.id === id);
+    if (!target) {
+      return Promise.reject(new Error(`Todoが見つかりません: ${id}`));
+    }
+    const updated: Todo = { ...target, ...patch };
+    this.todos = this.todos.map((todo) => (todo.id === id ? updated : todo));
+    return Promise.resolve(updated);
+  }
+
+  remove(id: string): Promise<void> {
+    this.todos = this.todos.filter((todo) => todo.id !== id);
+    return Promise.resolve();
+  }
+}

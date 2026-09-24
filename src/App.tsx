@@ -3,14 +3,13 @@ import type { AsyncState, Todo } from "./types";
 import { TodoList } from "./TodoList";
 import { AddTodoForm } from "./AddTodoForm";
 import { addTodo, removeTodo, toggleTodo } from "./todoOperations";
-import {
-  JsonServerTodoRepository,
-  type TodoRepository,
-} from "./todoRepository";
+import type { TodoRepository } from "./todoRepository";
 
-const repository: TodoRepository = new JsonServerTodoRepository();
+interface AppProps {
+  repository: TodoRepository;
+}
 
-function App() {
+function App({ repository }: AppProps) {
   const [state, setState] = useState<AsyncState<readonly Todo[]>>({
     status: "loading",
   });
@@ -38,7 +37,7 @@ function App() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [repository]);
 
   const handleToggle = (id: string) => {
     if (state.status !== "success") return;
