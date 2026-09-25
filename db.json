@@ -3,17 +3,20 @@
     {
       "id": "1",
       "title": "Reactの基礎を学ぶ",
-      "done": false
+      "done": false,
+      "dueDate": null
     },
     {
       "id": "2",
       "title": "useStateを理解する",
-      "done": true
+      "done": true,
+      "dueDate": null
     },
     {
       "id": "3",
       "title": "propsとkeyを理解する",
-      "done": false
+      "done": false,
+      "dueDate": null
     }
   ],
   "$schema": "./node_modules/json-server/schema.json"

@@ -8,6 +8,7 @@ const todo: Todo = {
   id: "1",
   title: "テストデータ",
   done: false,
+  dueDate: null,
 };
 const onToggle = vi.fn<(id: string) => void>();
 const onRemove = vi.fn<(id: string) => void>();

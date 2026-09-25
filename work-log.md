@@ -38,7 +38,7 @@
 | 第2 | 9. Zod導入 + 型定義(.d.ts)を読む | 完了 |
 | 第2 | 10. Vitest + React Testing Library(最小限、基本部分) | 完了 |
 | 第2 | 10-a. Appの依存性注入 + InMemoryTodoRepository + Appの描画テスト | 完了 |
-| 第3: 外部APIとCORS | 11. Nager.Dateから祝日を取得して表示に反映 | 未着手 |
+| 第3: 外部APIとCORS | 11. Nager.Dateから祝日を取得して表示に反映 | 完了 |
 | 第3 | 12. CORSに当たる → Viteのproxyで回避 | 未着手 |
 | 第4: 公開と自宅サーバ | 13. GitHub Pagesへデプロイ(デモ用ビルド) | 未着手 |
 | 第4 | 14. Docker Compose + nginxで自宅サーバに載せる | 未着手 |
@@ -68,6 +68,8 @@ GitHub issueでの進捗管理を開始(マイルストーン0〜4を親issue、
 ステップ10(Vitest + React Testing Library、最小限)着手。`vitest` / `jsdom` / `@testing-library/react` / `@testing-library/jest-dom` / `@testing-library/user-event` / `@vitest/eslint-plugin`を導入(すべてClaudeが実装、learning-plan.md 2.2節の「テストのボイラープレート」に該当)。`vite.config.ts`に`/// <reference types="vitest/config" />`+`test: { environment: "jsdom", setupFiles: ["./src/setupTests.ts"] }`を追加、`src/setupTests.ts`で`@testing-library/jest-dom/vitest`を読み込みDOM用マッチャーを有効化、`package.json`に`test`/`test:watch`スクリプトを追加、`eslint.config.js`に`*.test.{ts,tsx}`向けの`@vitest/eslint-plugin`設定を追加。ts-tetrisの既存スタイル(`describe`/`it`/`expect`を明示import、`globals: true`は不使用)を踏襲。`npm run typecheck` / `npm run lint`は通過確認済み。`src/todoOperations.test.ts`にスケルトン(import文のみ)を用意し、`toggleTodo`/`removeTodo`/`addTodo`の純粋関数テストをTODO(human)として学習者に依頼、実装待ちのままセッション終了。
 ステップ10(基本部分)完了。`todoOperations.test.ts`の純粋関数テスト5件、`TodoItem.test.tsx`の描画テスト6件をそれぞれ学習者が実装(レビューで数点の不変性違反・JSX呼び出し忘れ等のバグを対話で自力修正済み、詳細は当該日付のエントリ参照)。ステップ10-a(`App`の依存性注入+`InMemoryTodoRepository`実装+`App`の描画テスト)と、`todoOperations.test.ts`の不変性テスト(保留分)は未着手のまま残した。
 ステップ10-a(`App`の依存性注入 + `InMemoryTodoRepository` + `App`の描画テスト)完了。`App.tsx`の`repository`をモジュールスコープの定数からpropsに変更(`AppProps`型は学習者が実装。当初`repository?: TodoRepository`+デフォルト値`new JsonServerTodoRepository()`を選択)。この状態で`useEffect`の依存配列に`repository`を含めるとどうなるかを議論する中で、学習者自身が「デフォルト値(`new`)は再レンダリングのたびに再評価され新しい参照になるため、依存配列に含めると無限ループの罠になりうる」ことに気づき、`main.tsx`側でモジュールスコープの定数として`repository`を1つ生成し`<App repository={repository} />`と明示的に渡す設計に変更(Claudeが実装)。あわせて`AppProps.repository`を必須化し`App`側のデフォルト値を削除(理由: 型で「省略不可」を保証しないと将来同じ罠が復活するため)。`useEffect`の依存配列は学習者の判断で`[repository]`に変更。`InMemoryTodoRepository`(list/create/update/remove、いずれも内部配列を不変更新)は`JsonServerTodoRepository`と同じ「具象実装」として今回もClaudeが実装(ステップ7・8の前例を踏襲)。`src/App.test.tsx`に`App`の描画テスト(初期表示/追加/トグル)をTODO(human)として学習者が実装。レビューで3点指摘: (1)`repository`をモジュールスコープで1回だけ生成しテスト間で共有していた問題(テストの独立性違反)、(2)トグルのテストで`cleanup`+再`render`により実際には「同じ画面上での再レンダリング」を検証できていなかった問題、(3)`previousElementSibling`というDOM構造依存の脆い取得方法。いずれも対話で自力修正(`beforeEach`内で`repository`を作り直す/`cleanup`+再`render`を削除しクリック直後を直接検証/`closest("li")`+`within(...).getByRole("checkbox")`に変更)。`npm run typecheck`/`lint`/`format`/`test`(3ファイル14件)すべて通過。学習者が新しく理解した概念を正確に言語化(下記)。
+
+ステップ11(Nager.Dateから祝日を取得して表示に反映)完了(2026-09-26)。保留していた不変性テストは学習価値が低いと判断してスキップし、独立issue #23 に分離。#15(ステップ10)・#4(マイルストーン2)をclose。`TodoSchema`に`dueDate: z.iso.date().nullable()`を追加(学習者)し、`AddTodoForm`に`<input type="date">`(未入力`""`→`null`変換)、`TodoItem`に期限日と祝日名の表示を追加。`src/holidays.ts`に`HolidaySchema`(`date`/`localName`のみ、学習者)・`fetchHolidays(year)`(Claude)・純粋関数`findHoliday(dueDate, holidays)`(学習者)を配置。`App`は祝日用の独立した`holidayState: AsyncState<readonly Holiday[]>`を持ち、`holidays`は成功以外なら`[]`に倒す導出値として描画時に計算(取得失敗時も祝日名が出ないだけで一覧は壊れない)。祝日取得関数も`repository`同様に`App`のprops(`fetchHolidays: (year: number) => Promise<readonly Holiday[]>`)で注入し、`main.tsx`から本物、`App.test.tsx`から固定データの偽物を渡す(テスト中の外部通信を解消)。年は`2026`ハードコード。`storage.ts`の型ガードは`dueDate`未対応のまま(ステップ13でZod化予定)。ステップ12着手時の申し送り: Nager.Dateは`access-control-allow-origin: *`を返すためCORSが再現しない。typecheck/lint/format/test(3ファイル15件)通過。
 
 ---
 
@@ -325,3 +327,35 @@ GitHub issueでの進捗管理を開始(マイルストーン0〜4を親issue、
 - 詰まった点(TS由来 / React由来 / JS由来 / 環境由来): React由来が中心。(a) propsのデフォルト値(`new`式)が再レンダリングのたびに再評価され新しい参照になるため、`useEffect`の依存配列に含めると無限ループの罠になりうるという、ステップ8の教訓(モジュールスコープに出す)の一段深い応用パターン。(b) 描画テストにおけるテストの独立性違反(共有`repository`インスタンス)と、テストの検証範囲の誤り(`cleanup`+再`render`では「その場での再レンダリング」を確認できていない)。いずれも対話で学習者自身が気づき、自力修正に至った。環境由来として、`InMemoryTodoRepository`の`async`メソッドに`await`が無いことによる`@typescript-eslint/require-await`エラーが発生(Claude側の実装ミス、`Promise.resolve`/`Promise.reject`への書き換えで解決)。
 - 新しく理解したReactの概念: (1) propsのデフォルト値に`new ...()`のような式を書くと、コンポーネントが再レンダリングされるたびに再評価され新しい参照が生成される。これを`useEffect`の依存配列に含めると無限ループの原因になりうるため、安定した参照が必要な値は呼び出し側(コンポーネントの外)で1度だけ生成して渡すべき。(2) `screen.findByText`等の`findBy*`クエリは非同期(Promiseを返す)で、`useEffect`を伴う非同期コンポーネントのテストでは`getBy*`ではなく`findBy*`を使う必要がある。(3) `closest()`で親要素を辿り、`within(要素)`でその要素の中だけに絞ってクエリできる — DOM構造(`previousElementSibling`等)に依存した取得より堅牢。
 - 次回やること: `todoOperations.test.ts`の不変性テスト(保留分。引数の配列を直接mutateしていないかの検証)に着手するか、ステップ11(Nager.Dateから祝日取得)に進むか、学習者と相談してから決める。
+
+## 2026-09-26
+
+- マイルストーン / ステップ: 第3マイルストーン / 11. Nager.Dateから祝日を取得して表示に反映(完了)
+- やったこと:
+  - セッション開始時に`learning-plan.md`/`work-log.md`を読み込み、ステップ10-a完了時点からの再開であることを確認。
+  - 保留していた`todoOperations.test.ts`の不変性テストの学習価値を学習者と検討。`readonly`型でmutateはコンパイル時に防げており、テスト間汚染の教訓もステップ10/10-aで回収済みのため「新規の学習価値は低い」と判断し、スキップしてステップ11へ進むことに決定。
+  - GitHub issue整理: 予備issue #23(不変性テスト)をステップ10(#15)のsub-issueから外して独立した任意課題に変更(学習者の希望)。子issueが全てcloseになったため#15(ステップ10)と#4(マイルストーン2)をclose。
+  - ステップ11の進め方を4段階に分割して提示: (1)`TodoSchema`に期限日追加(学習者)→フォーム/表示の配線(Claude)、(2)Nager.Dateレスポンス用Zodスキーマ(学習者)→取得処理(Claude)、(3)祝日判定の純粋関数(学習者)、(4)祝日の読み込み状態を`App`に組み込み取得失敗時も壊れないようにする。
+  - 現状の`Todo`に期限日フィールドが無いことを確認。`src/types.ts`の`TodoSchema`に`dueDate`追加のTODO(human)を設置し、Learn by Doing requestを送信(判断ポイント: `Date`か`"YYYY-MM-DD"`文字列か、必須か`.optional()`/`.nullable()`か、既存`db.json`データとの互換性)。学習者の実装待ち。
+  - 学習者が`dueDate: z.iso.date().nullable()`を実装(文字列で保持、キーは必須・値は`YYYY-MM-DD`か`null`)。typecheckで`dueDate`欠落エラーが6箇所出た一方、Vitestは型チェックをしないため14件すべて通過していた点をInsightとして説明。`.nullable()`は「キーはある・値がnull」なので、キー自体が無い既存`db.json`データは`parse`で落ちることも補足。
+  - Claudeが配線: `db.json`とテストデータに`dueDate: null`を追加、`AddTodoForm`に`<input type="date">`を追加(未入力の`""`→`null`変換はフォーム境界で1回だけ行う)、`onAdd(title, dueDate)`/`handleAdd`/`create({ title, dueDate })`を更新、`TodoItem`に「(期限: …)」表示を追加。typecheck/lint/format/test(14件)通過。
+  - `storage.ts`の手書き型ガード`isValidTodo`が`dueDate`を検査しないまま`value is Todo`を主張する「嘘をつく型ガード」になった点を指摘(現在未使用。ステップ13で作り直す際にZod化する)。
+  - `curl`でNager.Date(`/api/v3/PublicHolidays/2026/JP`)の実レスポンスを確認し、`src/holidays.ts`を作成(`fetchHolidays(year)`はClaudeが実装、`HolidaySchema`の中身をTODO(human)として依頼)。
+  - 学習者がブラウザで期限日の追加・表示を確認。
+  - 学習者が`HolidaySchema`を`date`/`localName`の2フィールドのみで定義(不要フィールドは`z.object`がstripする)。当初`date: z.iso.date().nullable()`としていたため、「日付がnullの祝日は何を意味するか」「`h.date === todo.dueDate`で両方nullだと期限なしTodoが祝日扱いになる」ことを問いかけ、学習者が`.nullable()`を外して修正。「型を揃える=修飾子をコピーする、ではなく、各データの意味で決める」「緩いスキーマは内部にありえない状態を持ち込む」をInsightとして説明。
+  - 祝日判定の純粋関数`findHoliday`を`src/holidays.ts`にTODO(human)として依頼。
+  - 学習者の`findHoliday`初版は引数`dueDate: string`(nullは呼び出し側で弾く)・戻り値`Holiday | undefined`という型設計は良かったが、関数内で`fetchHolidays`を呼ぶ非純粋な`async`関数だった。「Todo件数ぶんAPIリクエストが飛ぶ」「TodoItemごとにuseEffectと状態が必要になる」「テストで本物の通信が発生する」点を問いかけ、学習者が`findHoliday(dueDate, holidays: readonly Holiday[])`の同期的な純粋関数(`find`使用)に書き直し。
+  - Claudeが表示側を配線: `TodoList`に`holidays: readonly Holiday[]`propを追加し、各Todoについて`dueDate === null ? undefined : findHoliday(...)`を計算して`TodoItem`の`holiday?: Holiday`propに渡す。`TodoItem`は祝日なら期限日の横に`localName`を表示。
+  - `App.tsx`に祝日一覧の状態・取得・`holidays`導出をTODO(human)として依頼(暫定で`const holidays: readonly Holiday[] = []`を置き、`fetchHolidays`未使用のlintエラーは学習者の実装で解消予定)。
+  - 学習者が`App`に祝日用の独立した`useState<AsyncState<readonly Holiday[]>>`と`useEffect`(`cancelled`フラグ付き、依存配列`[]`、年は`2026`ハードコード)を実装。初版は`if`ブロック内で`const holidays`を宣言しておりブロックスコープ外で参照できずtypecheck/テスト失敗。指摘後、三項演算子`holidayState.status === "success" ? holidayState.data : []`に修正(失敗時は空配列に倒すことで「壊れない」をデータの既定値で実現)。typecheck/lint/format/test(14件)通過。
+  - 学習者がブラウザで確認: 祝日の期限日に祝日名表示/祝日でない日は非表示/DevToolsのリクエストブロックで祝日取得を失敗させてもTodo一覧・追加・トグル・削除は正常動作し祝日名だけ消えることを確認。ステップ11の完了条件を満たした。
+  - 【ステップ12への申し送り】`curl -H "Origin: ..."`で確認したところNager.Dateは`access-control-allow-origin: *`を返すため、計画書の「CORSに当たる」がNager.Dateでは再現しない。ステップ12着手時に題材を学習者と相談する(先回りして解説はしない)。
+  - `App.test.tsx`実行時に本物のNager.Dateへ通信が発生している問題を説明し、学習者の選択で「今やる」ことに決定。`fetchHolidays`を`App`のpropsで注入する形に変更するため、`AppProps`にTODO(human)を設置。
+  - 学習者が`AppProps`に`fetchHolidays: (year: number) => Promise<readonly Holiday[]>`(関数型を直接記述)を追加し、`import`側を消して名前衝突を解消。依存配列は`[]`のままで`exhaustive-deps`警告が残っている。
+  - Claudeが配線: `main.tsx`でモジュールスコープの`fetchHolidays`をそのまま渡す(参照が安定)。`App.test.tsx`に固定の祝日(`2026-11-03` 文化の日)を返す`fakeFetchHolidays`を用意し、`initialTodos`の「牛乳を買う」の期限日をその日に変更。テスト中の本物への通信は解消(14件通過)。
+  - 祝日名表示のテストをTODO(human)として依頼、あわせて依存配列の修正を依頼。
+  - 学習者が依存配列を`[fetchHolidays]`に修正し、「期限日が祝日のTodoに祝日名が表示される」テストを`closest("li")`+`within(...).findByText(/文化の日/)`で実装。偽物の祝日一覧を一時的に空にしてテストが失敗することを確認(テストが実際に検知力を持つことの検証)。typecheck/lint/format/test(15件)通過。
+  - 概念の言語化で、当初「holidaysをuseStateにしないのは非同期・外部APIでエラー時も壊れないため」と説明したため、壊れない理由は状態の分離と`[]`既定値であること、導出値を状態にすると同じ情報を2か所に持つことを問いかけ、学習者が正しく言い直した。
+- 詰まった点(TS由来 / React由来 / JS由来 / 環境由来): JS由来: `if`ブロック内の`const`がブロックスコープ外で参照できない。設計由来: 祝日の`date`を`dueDate`に合わせて安易に`.nullable()`にした(null同士の一致で期限なしTodoが祝日扱いになる危険)、`findHoliday`内で`fetchHolidays`を呼ぶ非純粋関数にした。いずれも問いかけで自力修正。
+- 新しく理解したReactの概念: (1) 状態から導けるもの(`holidays`)は`useState`にせず描画のたびに計算する — 同じ情報を2か所に持つと同期ずれのバグの原因になるため、状態は最小限にする。(2) 独立して失敗しうる非同期データは別の状態に分けると、片方の失敗が画面全体を壊さない。(3) 判定ロジックを純粋関数に切り出すと通信なしで同期的にテストできる。(4) 外部依存(祝日取得関数)もpropsで注入すればテストで偽物に差し替えられる(10-aの応用)。Zod面では`.nullable()`は「キー必須・値はnull可」。
+- 次回やること: ステップ12(CORS)。Nager.DateではCORSが再現しないため、題材を学習者と相談する。任意課題: 祝日取得年のハードコード解消、祝日取得失敗の表示、issue #23。

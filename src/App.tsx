@@ -4,12 +4,14 @@ import { TodoList } from "./TodoList";
 import { AddTodoForm } from "./AddTodoForm";
 import { addTodo, removeTodo, toggleTodo } from "./todoOperations";
 import type { TodoRepository } from "./todoRepository";
+import { type Holiday } from "./holidays";
 
 interface AppProps {
   repository: TodoRepository;
+  fetchHolidays: (year: number) => Promise<readonly Holiday[]>;
 }
 
-function App({ repository }: AppProps) {
+function App({ repository, fetchHolidays }: AppProps) {
   const [state, setState] = useState<AsyncState<readonly Todo[]>>({
     status: "loading",
   });
@@ -38,6 +40,39 @@ function App({ repository }: AppProps) {
       cancelled = true;
     };
   }, [repository]);
+
+  const [holidayState, setHolidayState] = useState<
+    AsyncState<readonly Holiday[]>
+  >({
+    status: "loading",
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+
+    fetchHolidays(2026)
+      .then((data) => {
+        if (cancelled) return;
+        setHolidayState({ status: "success", data });
+      })
+      .catch((error: unknown) => {
+        if (cancelled) return;
+        setHolidayState({
+          status: "error",
+          message:
+            error instanceof Error
+              ? error.message
+              : "不明なエラーが発生しました",
+        });
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [fetchHolidays]);
+
+  const holidays: readonly Holiday[] =
+    holidayState.status === "success" ? holidayState.data : [];
 
   const handleToggle = (id: string) => {
     if (state.status !== "success") return;
@@ -77,10 +112,10 @@ function App({ repository }: AppProps) {
       });
   };
 
-  const handleAdd = (title: string) => {
+  const handleAdd = (title: string, dueDate: string | null) => {
     if (state.status !== "success") return;
     repository
-      .create({ title })
+      .create({ title, dueDate })
       .then((newTodo) => {
         setState({ status: "success", data: addTodo(state.data, newTodo) });
       })
@@ -110,6 +145,7 @@ function App({ repository }: AppProps) {
         todos={state.data}
         onToggle={handleToggle}
         onRemove={handleRemove}
+        holidays={holidays}
       />
     </>
   );

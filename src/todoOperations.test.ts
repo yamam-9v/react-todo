@@ -10,6 +10,7 @@ function makeTodos(items: readonly boolean[]): Todo[] {
       id,
       title: `テストデータ${id}`,
       done,
+      dueDate: null,
     };
   });
 }
@@ -43,6 +44,7 @@ describe("addTodo", () => {
     id: "100",
     title: "新しいTodo",
     done: false,
+    dueDate: null,
   };
   it("newTodoが存在する時､新しいTodoを末尾に追加した新しいTodo[]を返す", () => {
     expect(addTodo(makeTodos([true, true, false]), newTodo)).toEqual([
