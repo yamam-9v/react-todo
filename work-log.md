@@ -39,7 +39,7 @@
 | 第2 | 10. Vitest + React Testing Library(最小限、基本部分) | 完了 |
 | 第2 | 10-a. Appの依存性注入 + InMemoryTodoRepository + Appの描画テスト | 完了 |
 | 第3: 外部APIとCORS | 11. Nager.Dateから祝日を取得して表示に反映 | 完了 |
-| 第3 | 12. CORSに当たる → Viteのproxyで回避(内閣府祝日CSVを題材に) | 着手 |
+| 第3 | 12. CORSに当たる → Viteのproxyで回避(内閣府祝日CSVを題材に) | 完了 |
 | 第3 | 12-a. 祝日の取得元を内閣府CSVに差し替え | 未着手 |
 | 第4: 公開と自宅サーバ | 13. GitHub Pagesへデプロイ(デモ用ビルド) | 未着手 |
 | 第4 | 14. Docker Compose + nginxで自宅サーバに載せる | 未着手 |
@@ -363,7 +363,7 @@ GitHub issueでの進捗管理を開始(マイルストーン0〜4を親issue、
 
 ## 2026-09-27
 
-- マイルストーン / ステップ: 第3マイルストーン / 12. CORSに当たる → Viteのproxyで回避(着手)
+- マイルストーン / ステップ: 第3マイルストーン / 12. CORSに当たる → Viteのproxyで回避(完了)
 - やったこと:
   - セッション開始時に`learning-plan.md`/`work-log.md`を読み込み、ステップ11完了時点からの再開であることを確認。
   - 前回の申し送り(Nager.DateはCORSを許可しており計画書の「CORSに当たる」が再現しない)を受け、代わりの題材を`curl -I -H "Origin: http://localhost:5173"`で調査。
@@ -377,7 +377,15 @@ GitHub issueでの進捗管理を開始(マイルストーン0〜4を親issue、
   - `learning-plan.md`を更新: 第3マイルストーンの表に12-aを追加し、12の題材と目安を変更(第3マイルストーンの目安を4〜6h→5〜7hに)、題材変更の理由と12/12-aの進め方の注意を追記。
   - `work-log.md`の進捗サマリー表に12-aを追加。
   - GitHub issue: #17(ステップ12)の本文を題材変更に合わせて更新し、ステップ12-aのissue(#24)を#17のsub-issueとして作成。
-  - 計画書の方針に従い、CORSの仕組みや回避策(proxy)の解説はまだしていない。
-- 詰まった点(TS由来 / React由来 / JS由来 / 環境由来): なし(コード変更なし)。
-- 新しく理解したReactの概念: なし(ステップ未完了)。
-- 次回やること: ステップ12の実装に入る。先回りせず素直にブラウザから`fetch`させてCORSエラーを出させ、DevToolsで確認してから同一オリジンポリシーの説明→Viteの`server.proxy`で回避、の順に進める。
+  - 計画書・work-logの更新を`b73fd3d`でcommit/push。
+  - ステップ12の実装: 計画書の方針どおり回避策を先に与えず、`holidays.ts`に`fetchCaoHolidaysCsv()`の枠(TODO(human))、`main.tsx`のトップレベルに実験用の呼び出し(成功時は文字数と先頭100文字、失敗時はエラーをconsole出力。ステップ12-aで削除予定)を用意。React由来の要因を排除するため`useEffect`ではなくトップレベルに置いた。
+  - 学習者が`fetchCaoHolidaysCsv()`を`fetchHolidays`と同じ流れ(`response.ok`チェック+`response.text()`)で実装し、内閣府CSVのURLを直接fetch。ブラウザ(Firefox)で「クロスオリジン要求をブロックしました…(理由: CORS ヘッダー 'Access-Control-Allow-Origin' が足りない)。ステータスコード: 200」と`TypeError: NetworkError`が出ることを確認(本物のCORSエラーを体験)。
+  - エラーメッセージの読み方を対話: ステータス200=サーバは正常に返している、JSにはCORSでもネットワーク断でも同じ`TypeError`しか渡らない、`curl`では取れる、の3点を示し、「誰がいつ止めたか」「curlとブラウザの違い」を問いかけ。学習者は「ブラウザが止めた」「`access-control-allow-origin`の有無」と回答。止めるタイミングは送信時ではなくレスポンス受信後(JSへ中身を渡すのを拒否)と補足し、同一オリジンポリシーとCORSが「ブラウザの利用者(Cookie・社内ネットワーク到達性)を守るためのブラウザ側のルール」であることを説明。
+  - 回避策を問いかけ、学習者が「ブラウザが直接取りに行かず、誰かに代わりに取りに行かせてデータだけ受け取る」とproxyの発想に自力で到達。
+  - Claudeが`vite.config.ts`に`server.proxy`を設定(`/api/cao`→`https://www8.cao.go.jp`、`changeOrigin: true`、`rewrite`で目印の`/api/cao`を除去)。proxyは`npm run dev`の開発サーバ内にしか存在せず、ステップ13(ビルド時埋め込み)・14(nginxで同じ代理)につながる点を補足。
+  - 学習者が`CAO_CSV_URL`を相対パス`/api/cao/chosei/shukujitsu/syukujitsu.csv`に書き換え、ブラウザで取得成功を確認。Networkタブで宛先が`localhost`になっていること、レスポンスに`access-control-allow-origin`が無いのに成功していること(同一オリジンなのでCORSの確認自体が行われない)を確認。
+  - typecheck/lint/format/test(15件)通過。`db.json`のフォーマット崩れ(CRUD操作由来)も合わせて修正。
+  - 学習者が完了条件の2点(なぜブラウザだけが怒られるのか / proxyで何が変わったのか)を自分の言葉で正確に説明。ステップ12完了。
+- 詰まった点(TS由来 / React由来 / JS由来 / 環境由来): 環境由来(CORS)のエラーを意図的に発生させた。詰まりではなく、学習者は問いかけに沿ってproxyの発想まで自力で到達。細部の補足として、ブラウザが止めるのは送信時ではなくレスポンス受信後であること。
+- 新しく理解した概念(学習者の言葉): (1) CORSでブラウザだけが怒られるのは、ブラウザがCookieなどのログイン状態を保持している場合があり、悪意のある攻撃から守るため。curlにはログイン状態の保持などがないためチェックの必要がない。(2) proxyを入れると、ブラウザからは同一オリジンのViteとやり取りしているだけに見える。実際にはViteが内閣府CSVとやり取りしデータを中継している。(3) 外部APIを扱うときは`access-control-allow-origin`を確認し、あれば特別な処理なくfetchでき、なければproxyなどで回避する。Claudeの補足: 値が特定オリジン指定の場合もあるため「自分のオリジンが許可されているか」で判断する / proxyは開発サーバ内にしか無く本番では別の手段(ステップ13・14)が必要。
+- 次回やること: ステップ12-a(#24)。`response.text()`はUTF-8として読むためShift_JISのCSVが文字化けしている。Shift_JISでのデコード(Claude)→CSVを`Holiday[]`に変換する純粋関数とテスト(学習者)→Nager.Date実装と並べて`main.tsx`で注入する関数を差し替え、`main.tsx`の実験用呼び出しを削除。

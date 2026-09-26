@@ -34,6 +34,19 @@ export async function fetchHolidays(year: number): Promise<readonly Holiday[]> {
   return HolidayListSchema.parse(data);
 }
 
+// 内閣府「国民の祝日」CSV(ステップ12の実験用。中身の利用はステップ12-aで行う)
+const CAO_CSV_URL = "/api/cao/chosei/shukujitsu/syukujitsu.csv";
+
+export async function fetchCaoHolidaysCsv(): Promise<string> {
+  const response = await fetch(CAO_CSV_URL);
+  if (!response.ok) {
+    throw new Error(
+      `祝日データの取得に失敗しました: ${response.status} ${response.statusText}`,
+    );
+  }
+  return await response.text();
+}
+
 export function findHoliday(
   dueDate: string,
   holidays: readonly Holiday[],
