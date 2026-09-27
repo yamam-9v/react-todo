@@ -34,7 +34,11 @@ export async function fetchHolidays(year: number): Promise<readonly Holiday[]> {
   return HolidayListSchema.parse(data);
 }
 
-// 内閣府「国民の祝日」CSV(ステップ12の実験用。中身の利用はステップ12-aで行う)
+// 内閣府「国民の祝日」CSV(Viteのproxy経由で取得する)
+// 中身の例(Shift_JIS、改行はCRLF、1955年〜翌年までの全年分):
+//   国民の祝日・休日月日,国民の祝日・休日名称
+//   1955/1/1,元日
+//   2027/11/3,文化の日
 const CAO_CSV_URL = "/api/cao/chosei/shukujitsu/syukujitsu.csv";
 
 export async function fetchCaoHolidaysCsv(): Promise<string> {
@@ -44,7 +48,41 @@ export async function fetchCaoHolidaysCsv(): Promise<string> {
       `祝日データの取得に失敗しました: ${response.status} ${response.statusText}`,
     );
   }
-  return await response.text();
+  // response.text() は常にUTF-8として読むため、バイト列のまま受け取って
+  // Shift_JISとしてデコードする
+  const buffer = await response.arrayBuffer();
+  return new TextDecoder("shift_jis").decode(buffer);
+}
+
+export function parseCaoHolidaysCsv(csv: string): Holiday[] {
+  const row = csv.split("\r\n");
+  const croppedRow = row.slice(1, -1);
+  const splittedRow = croppedRow.map((item) => item.split(","));
+  const holidays: unknown = splittedRow.map((item) => {
+    if (!item[0]) return;
+
+    const [year, month, day] = item[0].split("/");
+    const padMonth = month?.padStart(2, "0");
+    const padDay = day?.padStart(2, "0");
+
+    return {
+      date: `${year}-${padMonth}-${padDay}`,
+      localName: item[1],
+    };
+  });
+
+  return HolidayListSchema.parse(holidays);
+}
+
+// fetchHolidays(Nager.Date版)と同じ形にそろえ、main.tsx で差し替えられるようにする。
+// CSVは全年分が1ファイルなので、取得後に指定年だけに絞り込む
+export async function fetchCaoHolidays(
+  year: number,
+): Promise<readonly Holiday[]> {
+  const csv = await fetchCaoHolidaysCsv();
+  return parseCaoHolidaysCsv(csv).filter((holiday) =>
+    holiday.date.startsWith(`${year}-`),
+  );
 }
 
 export function findHoliday(

@@ -40,7 +40,7 @@
 | 第2 | 10-a. Appの依存性注入 + InMemoryTodoRepository + Appの描画テスト | 完了 |
 | 第3: 外部APIとCORS | 11. Nager.Dateから祝日を取得して表示に反映 | 完了 |
 | 第3 | 12. CORSに当たる → Viteのproxyで回避(内閣府祝日CSVを題材に) | 完了 |
-| 第3 | 12-a. 祝日の取得元を内閣府CSVに差し替え | 未着手 |
+| 第3 | 12-a. 祝日の取得元を内閣府CSVに差し替え | 完了 |
 | 第4: 公開と自宅サーバ | 13. GitHub Pagesへデプロイ(デモ用ビルド) | 未着手 |
 | 第4 | 14. Docker Compose + nginxで自宅サーバに載せる | 未着手 |
 | 第4 | 15. tailscale serveで安全に公開 | 未着手 |
@@ -71,6 +71,7 @@ GitHub issueでの進捗管理を開始(マイルストーン0〜4を親issue、
 ステップ10-a(`App`の依存性注入 + `InMemoryTodoRepository` + `App`の描画テスト)完了。`App.tsx`の`repository`をモジュールスコープの定数からpropsに変更(`AppProps`型は学習者が実装。当初`repository?: TodoRepository`+デフォルト値`new JsonServerTodoRepository()`を選択)。この状態で`useEffect`の依存配列に`repository`を含めるとどうなるかを議論する中で、学習者自身が「デフォルト値(`new`)は再レンダリングのたびに再評価され新しい参照になるため、依存配列に含めると無限ループの罠になりうる」ことに気づき、`main.tsx`側でモジュールスコープの定数として`repository`を1つ生成し`<App repository={repository} />`と明示的に渡す設計に変更(Claudeが実装)。あわせて`AppProps.repository`を必須化し`App`側のデフォルト値を削除(理由: 型で「省略不可」を保証しないと将来同じ罠が復活するため)。`useEffect`の依存配列は学習者の判断で`[repository]`に変更。`InMemoryTodoRepository`(list/create/update/remove、いずれも内部配列を不変更新)は`JsonServerTodoRepository`と同じ「具象実装」として今回もClaudeが実装(ステップ7・8の前例を踏襲)。`src/App.test.tsx`に`App`の描画テスト(初期表示/追加/トグル)をTODO(human)として学習者が実装。レビューで3点指摘: (1)`repository`をモジュールスコープで1回だけ生成しテスト間で共有していた問題(テストの独立性違反)、(2)トグルのテストで`cleanup`+再`render`により実際には「同じ画面上での再レンダリング」を検証できていなかった問題、(3)`previousElementSibling`というDOM構造依存の脆い取得方法。いずれも対話で自力修正(`beforeEach`内で`repository`を作り直す/`cleanup`+再`render`を削除しクリック直後を直接検証/`closest("li")`+`within(...).getByRole("checkbox")`に変更)。`npm run typecheck`/`lint`/`format`/`test`(3ファイル14件)すべて通過。学習者が新しく理解した概念を正確に言語化(下記)。
 
 ステップ11(Nager.Dateから祝日を取得して表示に反映)完了(2026-09-26)。保留していた不変性テストは学習価値が低いと判断してスキップし、独立issue #23 に分離。#15(ステップ10)・#4(マイルストーン2)をclose。`TodoSchema`に`dueDate: z.iso.date().nullable()`を追加(学習者)し、`AddTodoForm`に`<input type="date">`(未入力`""`→`null`変換)、`TodoItem`に期限日と祝日名の表示を追加。`src/holidays.ts`に`HolidaySchema`(`date`/`localName`のみ、学習者)・`fetchHolidays(year)`(Claude)・純粋関数`findHoliday(dueDate, holidays)`(学習者)を配置。`App`は祝日用の独立した`holidayState: AsyncState<readonly Holiday[]>`を持ち、`holidays`は成功以外なら`[]`に倒す導出値として描画時に計算(取得失敗時も祝日名が出ないだけで一覧は壊れない)。祝日取得関数も`repository`同様に`App`のprops(`fetchHolidays: (year: number) => Promise<readonly Holiday[]>`)で注入し、`main.tsx`から本物、`App.test.tsx`から固定データの偽物を渡す(テスト中の外部通信を解消)。年は`2026`ハードコード。`storage.ts`の型ガードは`dueDate`未対応のまま(ステップ13でZod化予定)。ステップ12着手時の申し送り: Nager.Dateは`access-control-allow-origin: *`を返すためCORSが再現しない。typecheck/lint/format/test(3ファイル15件)通過。
+ステップ12(内閣府CSVでCORSに当たる→Viteのproxyで回避)完了(2026-09-27)。`vite.config.ts`の`server.proxy`で`/api/cao`→`https://www8.cao.go.jp`を中継。ステップ12-a(#24)完了(2026-09-28): `holidays.ts`に`fetchCaoHolidaysCsv()`(`arrayBuffer()`+`TextDecoder("shift_jis")`、Claude)・純粋関数`parseCaoHolidaysCsv(csv)`(学習者。ヘッダと末尾改行を`slice(1, -1)`で除去、月日を`padStart`でゼロ埋め、崩れた行は`undefined`のまま`HolidayListSchema.parse`で例外にして全体を失敗させる方針)・`fetchCaoHolidays(year)`(取得→解析→年で絞り込み、Claude)。`src/holidays.test.ts`に正常系1件・異常系2件(学習者)。`main.tsx`は`fetchCaoHolidays`を`App`に注入(Nager.Date版`fetchHolidays`は残置)、ステップ12の実験用ログは削除。`App.tsx`は無変更。typecheck/lint/format/test(4ファイル18件)通過。
 
 ---
 
@@ -389,3 +390,23 @@ GitHub issueでの進捗管理を開始(マイルストーン0〜4を親issue、
 - 詰まった点(TS由来 / React由来 / JS由来 / 環境由来): 環境由来(CORS)のエラーを意図的に発生させた。詰まりではなく、学習者は問いかけに沿ってproxyの発想まで自力で到達。細部の補足として、ブラウザが止めるのは送信時ではなくレスポンス受信後であること。
 - 新しく理解した概念(学習者の言葉): (1) CORSでブラウザだけが怒られるのは、ブラウザがCookieなどのログイン状態を保持している場合があり、悪意のある攻撃から守るため。curlにはログイン状態の保持などがないためチェックの必要がない。(2) proxyを入れると、ブラウザからは同一オリジンのViteとやり取りしているだけに見える。実際にはViteが内閣府CSVとやり取りしデータを中継している。(3) 外部APIを扱うときは`access-control-allow-origin`を確認し、あれば特別な処理なくfetchでき、なければproxyなどで回避する。Claudeの補足: 値が特定オリジン指定の場合もあるため「自分のオリジンが許可されているか」で判断する / proxyは開発サーバ内にしか無く本番では別の手段(ステップ13・14)が必要。
 - 次回やること: ステップ12-a(#24)。`response.text()`はUTF-8として読むためShift_JISのCSVが文字化けしている。Shift_JISでのデコード(Claude)→CSVを`Holiday[]`に変換する純粋関数とテスト(学習者)→Nager.Date実装と並べて`main.tsx`で注入する関数を差し替え、`main.tsx`の実験用呼び出しを削除。
+
+## 2026-09-28
+
+- マイルストーン / ステップ: 第3マイルストーン / 12-a. 祝日の取得元を内閣府CSVに差し替え(完了)
+- やったこと:
+  - セッション開始時に`learning-plan.md`/`work-log.md`を読み込み、ステップ12完了・12-a未着手からの再開であることを確認。
+  - `curl`+`iconv`で内閣府CSVの実データを確認: 1行目はヘッダ(`国民の祝日・休日月日,国民の祝日・休日名称`)、改行は`CRLF`、日付はゼロ埋めなし(`1955/1/1`)、末尾に改行1つ、約1070行。
+  - Claudeが`fetchCaoHolidaysCsv()`のデコードを修正: `response.text()`は常にUTF-8として読むため、`response.arrayBuffer()`+`new TextDecoder("shift_jis").decode(buffer)`に変更。
+  - 学習者が純粋関数`parseCaoHolidaysCsv(csv)`を実装。当初は正規表現での抽出を構想していたが`split`ベースで実装。レビューの流れ:
+    - 初版で`const [date, localName] = croppedRow.map((item) => item.split(","))`と書き、「列」ではなく「1行目と2行目のペア」を分割代入していた。`?.`でエラーを黙らせると`"元日-undefined-undefined"`のようなデータが静かに作られることを指摘し、「1行→`Holiday`を1つ返す」`map`の形に自力で修正。
+    - テンプレートリテラルは`undefined`を`"undefined"`という文字列にするため、`noUncheckedIndexedAccess`でも`date`の崩れは型エラーにならないことを説明。行ごとにチェックするか最後に`HolidaySchema`で検証するかの選択肢を示し、学習者は途中を`unknown`にして最後に`parse`する方針を選択。
+    - 「なぜ`item[0]`にはエラーが出て`item[1]`には出ないのか」の質問に、メソッド呼び出し(使った瞬間)と、より厳しい型への代入(`: Holiday[]`→`unknown`に変えたことで検査自体が消えた)の違いを説明。
+    - 崩れた行の扱い(`throw` / `return;`で`undefined`を置き`parse`に任せる / `filter`・`flatMap`で捨てる)を比較し、学習者は`parse`に任せる(=1行でも崩れていれば全体を失敗させる)方針を選択。祝日取得の失敗はステップ11の設計により`holidayState`のエラーになるだけでTodo一覧は壊れない。
+    - `z.array(HolidaySchema)`を既存の`HolidayListSchema`に置き換え、年の不要な`padStart(4, "0")`を削除(「念のため」の整形は検証をすり抜けさせうる)。
+  - 学習者が`src/holidays.test.ts`を実装。正常系でZodErrorが出たのはテストデータの末尾が`\r\n\r\n`(実データは`\r\n`1つ)で、残った空行が`parse`で拒否されたため。`expect`が無く何も検証していなかった点も修正。異常系は「日付の形式が不正な行」「末尾に余分な改行」の2ケースを別々の`it`に分割。
+  - Claudeが`fetchCaoHolidays(year)`(取得→解析→`startsWith(`${year}-`)`で絞り込み、`fetchHolidays`と同じ型)を追加し、`main.tsx`で`App`に渡す関数を`fetchCaoHolidays`に差し替え、ステップ12の実験用ログを削除。`App.tsx`は無変更。
+  - 学習者がブラウザで確認: 祝日名が表示される / Networkタブで`date.nager.at`への通信が消え`localhost`の`/api/cao/...`のみ / 実験用ログが出ない。typecheck/lint/format/test(4ファイル18件)通過。
+- 詰まった点(TS由来 / React由来 / JS由来 / 環境由来): JS由来: `map`の結果への分割代入で行と列を取り違えた。TS由来: `noUncheckedIndexedAccess`のエラーが出る場所/出ない場所の違い(テンプレートリテラルで`undefined`が文字列化され型から消える)。テストデータ由来: 末尾改行の数が実データと違いZodError。いずれも問いかけで自力修正。
+- 新しく理解した概念(学習者の言葉): (1) 文字化けする場合はバイト列のまま受け取り`TextDecoder`でその文字コードに合わせてデコードする。(2) `padStart()`は長さが第1引数に達していないとき第2引数を繰り返して埋める。必要なときだけ使うことで検証しやすくする。(3) `slice(開始, 終了)`で必要な部分だけ取り出す(Claude補足: 今回は配列に対して使用。終了位置は含まず、負数は末尾から数える)。(4) `map`の返り値は必ず配列なので`?.`は不要。`map`中の`return;`は`undefined`を要素として置く。(5) `undefined`のエラーが出るかは値に何をしたかによる — 置くだけなら出ない、メソッドを呼ぶ・より厳しい型に渡すと出る。(6) `fetchHolidays`をpropsで`App`に渡す実装にしたことで、fetchする先を変えられる(Claude補足: 中身を書き換えたのではなく、同じ型の別の関数を`main.tsx`から差し替えた。`App`は関数の型にだけ依存している)。
+- 次回やること: ステップ13(GitHub Pagesへデプロイ)。祝日データのビルド時埋め込み、`LocalStorageTodoRepository`への差し替え(`storage.ts`の型ガードのZod化・`dueDate`対応を含む)。任意課題: 祝日取得年のハードコード解消、祝日取得失敗の表示、issue #23。
