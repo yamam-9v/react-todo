@@ -41,8 +41,10 @@ export async function fetchHolidays(year: number): Promise<readonly Holiday[]> {
 //   2027/11/3,文化の日
 const CAO_CSV_URL = "/api/cao/chosei/shukujitsu/syukujitsu.csv";
 
-export async function fetchCaoHolidaysCsv(): Promise<string> {
-  const response = await fetch(CAO_CSV_URL);
+// url を省略するとブラウザ用(proxy経由)。scripts/generate-holidays.ts からは
+// 内閣府のURLを直接渡す(Node には CORS の制約が無い)
+export async function fetchCaoHolidaysCsv(url = CAO_CSV_URL): Promise<string> {
+  const response = await fetch(url);
   if (!response.ok) {
     throw new Error(
       `祝日データの取得に失敗しました: ${response.status} ${response.statusText}`,

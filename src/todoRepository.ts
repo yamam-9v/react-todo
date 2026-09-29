@@ -93,3 +93,82 @@ export class InMemoryTodoRepository implements TodoRepository {
     return Promise.resolve();
   }
 }
+
+const STORAGE_KEY = "react-todo:todos";
+
+const INITIAL_TODOS: readonly Todo[] = [
+  {
+    id: "1",
+    title: "Reactの基礎を学ぶ",
+    done: false,
+    dueDate: null,
+  },
+  {
+    id: "2",
+    title: "useStateを理解する",
+    done: true,
+    dueDate: null,
+  },
+  {
+    id: "3",
+    title: "propsとkeyを理解する",
+    done: false,
+    dueDate: null,
+  },
+];
+
+// GitHub Pages(json-server が無い環境)向け。Todo 一覧を localStorage に丸ごと保存する。
+// localStorage は同期 API だが、インターフェースに合わせて Promise を返す。
+// Promise.resolve().then(...) で包むのは、read() が throw したときに
+// 同期的な例外ではなく reject された Promise として呼び出し元に届けるため。
+export class LocalStorageTodoRepository implements TodoRepository {
+  list(): Promise<readonly Todo[]> {
+    return Promise.resolve().then(() => this.read());
+  }
+
+  create(input: TodoInput): Promise<Todo> {
+    return Promise.resolve().then(() => {
+      const newTodo: Todo = { id: crypto.randomUUID(), ...input, done: false };
+      this.write([...this.read(), newTodo]);
+      return newTodo;
+    });
+  }
+
+  update(id: string, patch: Partial<Omit<Todo, "id">>): Promise<Todo> {
+    return Promise.resolve().then(() => {
+      const todos = this.read();
+      const target = todos.find((todo) => todo.id === id);
+      if (!target) {
+        throw new Error(`Todoが見つかりません: ${id}`);
+      }
+      const updated: Todo = { ...target, ...patch };
+      this.write(todos.map((todo) => (todo.id === id ? updated : todo)));
+      return updated;
+    });
+  }
+
+  remove(id: string): Promise<void> {
+    return Promise.resolve().then(() => {
+      this.write(this.read().filter((todo) => todo.id !== id));
+    });
+  }
+
+  // localStorage から Todo 一覧を読み出して検証する。
+  // 読めない・形が違うデータは初期データに倒す(次の write で上書きされて消える)。
+  // デモ用ビルドなので、壊れたデータの救出より CRUD をすぐ見せることを優先している。
+  private read(): readonly Todo[] {
+    const data = localStorage.getItem(STORAGE_KEY);
+    if (data === null) return INITIAL_TODOS;
+
+    try {
+      const value: unknown = JSON.parse(data);
+      return TodoListSchema.parse(value);
+    } catch {
+      return INITIAL_TODOS;
+    }
+  }
+
+  private write(todos: readonly Todo[]): void {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(todos));
+  }
+}

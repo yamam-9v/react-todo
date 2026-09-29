@@ -14,7 +14,9 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --check .",
-    "format:fix": "prettier --write ."
+    "format:fix": "prettier --write .",
+    "holidays": "node scripts/generate-holidays.ts",
+    "build:demo": "tsc -b && vite build --mode demo"
   },
   "dependencies": {
     "react": "^19.2.8",
