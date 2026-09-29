@@ -41,7 +41,7 @@
 | 第3: 外部APIとCORS | 11. Nager.Dateから祝日を取得して表示に反映 | 完了 |
 | 第3 | 12. CORSに当たる → Viteのproxyで回避(内閣府祝日CSVを題材に) | 完了 |
 | 第3 | 12-a. 祝日の取得元を内閣府CSVに差し替え | 完了 |
-| 第4: 公開と自宅サーバ | 13. GitHub Pagesへデプロイ(デモ用ビルド) | 着手中 |
+| 第4: 公開と自宅サーバ | 13. GitHub Pagesへデプロイ(デモ用ビルド) | 完了 |
 | 第4 | 14. Docker Compose + nginxで自宅サーバに載せる | 未着手 |
 | 第4 | 15. tailscale serveで安全に公開 | 未着手 |
 | 第4 | 16. README整備 | 未着手 |
@@ -72,7 +72,7 @@ GitHub issueでの進捗管理を開始(マイルストーン0〜4を親issue、
 
 ステップ11(Nager.Dateから祝日を取得して表示に反映)完了(2026-09-26)。保留していた不変性テストは学習価値が低いと判断してスキップし、独立issue #23 に分離。#15(ステップ10)・#4(マイルストーン2)をclose。`TodoSchema`に`dueDate: z.iso.date().nullable()`を追加(学習者)し、`AddTodoForm`に`<input type="date">`(未入力`""`→`null`変換)、`TodoItem`に期限日と祝日名の表示を追加。`src/holidays.ts`に`HolidaySchema`(`date`/`localName`のみ、学習者)・`fetchHolidays(year)`(Claude)・純粋関数`findHoliday(dueDate, holidays)`(学習者)を配置。`App`は祝日用の独立した`holidayState: AsyncState<readonly Holiday[]>`を持ち、`holidays`は成功以外なら`[]`に倒す導出値として描画時に計算(取得失敗時も祝日名が出ないだけで一覧は壊れない)。祝日取得関数も`repository`同様に`App`のprops(`fetchHolidays: (year: number) => Promise<readonly Holiday[]>`)で注入し、`main.tsx`から本物、`App.test.tsx`から固定データの偽物を渡す(テスト中の外部通信を解消)。年は`2026`ハードコード。`storage.ts`の型ガードは`dueDate`未対応のまま(ステップ13でZod化予定)。ステップ12着手時の申し送り: Nager.Dateは`access-control-allow-origin: *`を返すためCORSが再現しない。typecheck/lint/format/test(3ファイル15件)通過。
 ステップ12(内閣府CSVでCORSに当たる→Viteのproxyで回避)完了(2026-09-27)。`vite.config.ts`の`server.proxy`で`/api/cao`→`https://www8.cao.go.jp`を中継。ステップ12-a(#24)完了(2026-09-28): `holidays.ts`に`fetchCaoHolidaysCsv()`(`arrayBuffer()`+`TextDecoder("shift_jis")`、Claude)・純粋関数`parseCaoHolidaysCsv(csv)`(学習者。ヘッダと末尾改行を`slice(1, -1)`で除去、月日を`padStart`でゼロ埋め、崩れた行は`undefined`のまま`HolidayListSchema.parse`で例外にして全体を失敗させる方針)・`fetchCaoHolidays(year)`(取得→解析→年で絞り込み、Claude)。`src/holidays.test.ts`に正常系1件・異常系2件(学習者)。`main.tsx`は`fetchCaoHolidays`を`App`に注入(Nager.Date版`fetchHolidays`は残置)、ステップ12の実験用ログは削除。`App.tsx`は無変更。typecheck/lint/format/test(4ファイル18件)通過。
-ステップ13(#18)着手(2026-09-29)。`src/todoRepository.ts`に`LocalStorageTodoRepository`(キー`react-todo:todos`、各メソッドは`read()`→変更→`write()`、async化で`read()`の例外をrejectとして届ける)をClaudeが実装。`read()`は学習者が実装(読めない・形が違うデータは`INITIAL_TODOS`に倒す)。祝日データは`npm run holidays`(`scripts/generate-holidays.ts`)で`src/generated/holidays.json`を生成しcommitする方式。`src/bundledHolidays.ts`の`getBundledHolidays`(学習者)で埋め込みデータを返す。`vite.config.ts`は`demo` modeで`base: "/react-todo/"`、`npm run build:demo`追加。`main.tsx`は`isDemo`で注入を切り替え(学習者)。`.github/workflows/deploy.yml`作成済み・未push。リポジトリがprivateのためPagesの公開方法が未決。予備issue #25(マイグレーション関数)を登録。
+ステップ13(#18)完了(2026-09-30)。`src/todoRepository.ts`に`LocalStorageTodoRepository`(キー`react-todo:todos`、各メソッドは`read()`→変更→`write()`、async化で`read()`の例外をrejectとして届ける)をClaudeが実装。`read()`は学習者が実装(読めない・形が違うデータは`INITIAL_TODOS`に倒す)。祝日データは`npm run holidays`(`scripts/generate-holidays.ts`)で`src/generated/holidays.json`を生成しcommitする方式。`src/bundledHolidays.ts`の`getBundledHolidays`(学習者)で埋め込みデータを返す。`vite.config.ts`は`demo` modeで`base: "/react-todo/"`、`npm run build:demo`追加。`main.tsx`は`isDemo`で注入を切り替え(学習者)。`.github/workflows/deploy.yml`でmainへのpush時にGitHub Pagesへ自動デプロイ(リポジトリはpublicに変更)。公開URL: https://yamam-9v.github.io/react-todo/予備issue #25(マイグレーション関数)を登録。
 
 ---
 
@@ -415,7 +415,7 @@ GitHub issueでの進捗管理を開始(マイルストーン0〜4を親issue、
 
 ## 2026-09-29
 
-- マイルストーン / ステップ: 第4マイルストーン / 13. GitHub Pagesへデプロイ(着手中)
+- マイルストーン / ステップ: 第4マイルストーン / 13. GitHub Pagesへデプロイ(完了。セッションは2026-09-30まで継続)
 - やったこと:
   - セッション開始時に`learning-plan.md`/`work-log.md`を読み込み、ステップ12-a完了(第3マイルストーン完了)からの再開であることを確認。
   - ステップ13を4段に分割して提示: (1)`LocalStorageTodoRepository`、(2)祝日データのビルド時埋め込み(Nodeスクリプトで内閣府CSVを取得し`parseCaoHolidaysCsv`を再利用してJSON化)、(3)`main.tsx`で環境ごとに注入を切り替え、(4)Viteの`base`設定とGitHub Actionsのデプロイワークフロー。ルーティングを入れていないためSPAのパス問題(HashRouter/404.html)は発生せず、`base`設定のみで足りる点を補足。
@@ -433,7 +433,10 @@ GitHub issueでの進捗管理を開始(マイルストーン0〜4を親issue、
   - 学習者が三項演算子で`repository`/`fetchHolidays`を`isDemo`に応じて選択(モジュールスコープで1回だけ`new`)。`App.tsx`は無変更。typecheck/lint/format/test(18件)通過。
   - `npm run build:demo`を実行し、`dist/index.html`のパスが`/react-todo/...`になっていること、バンドルに`localhost:3001`と`api/cao`が含まれず(`MODE`のビルド時置換で使われない分岐が除去された)、祝日名が埋め込まれていることを確認。
   - Claudeが`.github/workflows/deploy.yml`を作成(mainへのpushで`npm ci`→lint/typecheck/format/test→`build:demo`→`upload-pages-artifact`→`deploy-pages`)。
-  - リポジトリが**private**であることを確認(GitHub Freeではprivateリポジトリで Pages を使えない)。公開方法を学習者と相談中。
-- 詰まった点(TS由来 / React由来 / JS由来 / 環境由来): なし(着手直後)
-- 新しく理解したReactの概念: 未(ステップ完了時に記録)
-- 次回やること: `build:demo`をpreviewでブラウザ確認 → リポジトリの公開設定(private問題)を決める → Pagesの設定(Source: GitHub Actions)→ commit/pushしてデプロイ確認。
+  - リポジトリが**private**であることを確認(GitHub Freeではprivateリポジトリで Pages を使えない)。
+  - 学習者が`npx vite preview --mode demo`でブラウザ確認(祝日名表示 / リロード後も状態が残る / `localhost:3001`・`/api/cao`への通信なし)。
+  - 学習者の判断でリポジトリをpublicに変更(事前に履歴の秘密情報スキャンを実施し問題なし、commitメールはnoreply)。`gh api`でPagesを有効化(`build_type: workflow`)。
+  - `0eed8f0`でcommit/push。Actions(build 23s / deploy 9s)成功、`https://yamam-9v.github.io/react-todo/`が200を返すことを確認。学習者が公開URLで3点(祝日名表示 / リロード後も状態が残る / 余計な通信なし)を確認。ステップ13完了、issue #18をclose。
+- 詰まった点(TS由来 / React由来 / JS由来 / 環境由来): 大きな詰まりなし。lint由来: `catch (error)`の未使用変数、Claude側の骨組みで`require-await`。環境由来: privateリポジトリではGitHub Freeで Pages を使えない(publicに変更して解消)。
+- 新しく理解した概念(学習者の言葉): (1) 祝日データ生成スクリプトでfetch時にCORSエラーが出ないのは、CORSがブラウザが中で動くJSから利用者を守るために課しているルールであり、Node.jsはCookieを持たずこのルールの対象外だから。(2) 外部データが検証され内部データとなる境界は、利用者が触れるかどうか。(3) `vite build --mode demo`でビルドすると`import.meta.env.MODE`が`"demo"`になる。このビルド時に決まる定数を利用することで、異なる環境用のビルドで依存関係の問題を解消できる。Claudeの補足: (3)は具体的には「環境ごとに注入する実装を選び、使わない側はバンドルから除去される」。それが`main.tsx`の2行で済んだのは、`App`が具体的なクラス・関数ではなく型(`TodoRepository`、`(year) => Promise<readonly Holiday[]>`)にだけ依存していたため(4.5節のリポジトリパターンとステップ11の関数注入の投資回収)。
+- 次回やること: ステップ14(Docker Compose + nginxで自宅サーバに載せる、#19)。任意課題: #23(不変性テスト)、#25(localStorageデータのマイグレーション)、祝日取得年のハードコード解消、祝日取得失敗の表示、生成JSONを`HolidayListSchema.parse`するテスト。
